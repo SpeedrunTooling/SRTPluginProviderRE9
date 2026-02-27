@@ -1,0 +1,144 @@
+name: "Automated Release"
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: "Build"
+    runs-on: "windows-latest"
+    env:
+      working-directory: .
+      project-name: SRTPluginProviderRE9
+      platform: x64
+      configuration: Release
+    outputs:
+      project-name: ${{env.project-name}}
+      solution: ${{steps.generated-variables-1.outputs.solution}}
+      project: ${{steps.generated-variables-1.outputs.project}}
+      build-directory: ${{steps.generated-variables-1.outputs.build-directory}}
+      zip-filename: ${{steps.generated-variables-2.outputs.zip-filename}}
+      version: ${{steps.get_version.outputs.RELEASE_VERSION}}
+
+    steps:
+      # Checkout latest code
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Create repo user folder for the dependencies
+      - name: Create repo user folder
+        run: New-Item -ItemType directory -Path ..\..\SpeedRunTool
+
+      # Checkout latest dependencies code
+      - name: Checkout SRTHost
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: SRTHost
+          repository: SpeedRunTool/SRTHost
+
+      # GITHUB_WORKSPACE pathing is ass. Move this directory down one level.
+      - name: Move SRTHost down a folder to work with existing csproj pathing
+        run: Move-Item -Path SRTHost -Destination ..\..\SpeedRunTool
+
+      # Create repo user folder for the dependencies
+      - name: Create repo user folder
+        run: New-Item -ItemType directory -Path ..\..\Squirrelies
+
+      # Checkout latest dependencies code
+      - name: Checkout ProcessMemory
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: ProcessMemory
+          repository: Squirrelies/ProcessMemory
+
+      # GITHUB_WORKSPACE pathing is ass. Move this directory down one level.
+      - name: Move ProcessMemory down a folder to work with existing csproj pathing
+        run: Move-Item -Path ProcessMemory -Destination ..\..\Squirrelies
+
+      # Set some output variables
+      - name: Set the main environment variables based on other environment variables
+        id: generated-variables-1
+        run: |
+          echo '::set-output name=solution::src/${{env.project-name}}.slnx'
+          echo '::set-output name=project::src/${{env.project-name}}/${{env.project-name}}.csproj'
+          echo '::set-output name=build-directory::src/${{env.project-name}}/bin/Release/${{env.platform}}/net5.0/'
+
+      # Get the project's version number
+      - name: Get project version
+        id: get_version
+        uses: greenygh0st/net-proj-release-version@v2
+        with:
+          PROJ_FILE: ${{steps.generated-variables-1.outputs.project}}
+
+      # Sets the zip-filename output variable based on the project version
+      - name: Sets the zip-filename environment variable based on the project version
+        id: generated-variables-2
+        run: |
+          echo '::set-output name=zip-filename::${{env.project-name}}-v${{steps.get_version.outputs.RELEASE_VERSION}}.zip'
+
+      # Install .NET
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+          dotnet-quality: "ga"
+
+      # Compiles the plugin
+      - name: Compile the plugin
+        run: |
+          dotnet build ${{steps.generated-variables-1.outputs.solution}} -c "${{env.configuration}}" /p:Platform="${{env.platform}}"
+
+      - name: Upload publish artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            ${{steps.generated-variables-1.outputs.build-directory}}*
+
+  release:
+    name: "Release"
+    runs-on: "windows-latest"
+    needs: build
+    env:
+      working-directory: .
+      is-prerelease: true
+
+    steps:
+      # Checkout latest code
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      # Zip the publish artifacts
+      - name: Zip the publish artifacts
+        run: |
+          Add-Type -assembly 'System.IO.Compression'
+          Add-Type -assembly 'System.IO.Compression.FileSystem'
+          [System.IO.Compression.ZipArchive]$zipFile = [System.IO.Compression.ZipFile]::Open('${{needs.build.outputs.zip-filename}}', ([System.IO.Compression.ZipArchiveMode]::Create))
+          [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipFile, 'LICENSE', '${{needs.build.outputs.project-name}}\LICENSE')
+          $filesToZip = (Get-ChildItem -Path artifact -File -Recurse).FullName
+          foreach ($fileToZip in $filesToZip) {
+            $fileNameInZip = $fileToZip.Replace(($pwd.Path + '\artifact\'),'')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipFile, $fileToZip, ('${{needs.build.outputs.project-name}}\' + $fileNameInZip))
+          }
+          $zipFile.Dispose()
+
+      # Pushes the release
+      - name: Publish release
+        uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: ${{env.is-prerelease}}
+          title: "Automated Build - ${{needs.build.outputs.version}} Release"
+          files: |
+            ${{needs.build.outputs.zip-filename}}
