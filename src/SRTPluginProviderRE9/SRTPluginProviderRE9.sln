@@ -3,17 +3,17 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
 VisualStudioVersion = 18.3.11505.172
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SRTPluginProviderRE9", "SRTPluginProviderRE9\SRTPluginProviderRE9.csproj", "{FB803174-8A74-4CC0-8645-B1D6C4F53288}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SRTPluginProviderRE9", "SRTPluginProviderRE9.csproj", "{FB803174-8A74-4CC0-8645-B1D6C4F53288}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SRTPluginBase", "..\..\..\SpeedRunTool\SRTHost\SRTPluginBase\SRTPluginBase.csproj", "{1ADAD2C9-D8CC-4C4F-98C8-764AD9676BDA}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SRTPluginBase", "..\..\..\..\SpeedRunTool\SRTHost\SRTPluginBase\SRTPluginBase.csproj", "{1ADAD2C9-D8CC-4C4F-98C8-764AD9676BDA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{C25A59B3-E932-4FEA-9CFB-D9894A4492B9}"
 	ProjectSection(SolutionItems) = preProject
-		..\.gitignore = ..\.gitignore
-		..\.github\workflows\AutomatedRelease.yml = ..\.github\workflows\AutomatedRelease.yml
+		..\..\.gitignore = ..\..\.gitignore
+		..\..\.github\workflows\AutomatedRelease.yml = ..\..\.github\workflows\AutomatedRelease.yml
 		Directory.Build.props = Directory.Build.props
-		..\LICENSE = ..\LICENSE
-		..\README.md = ..\README.md
+		..\..\LICENSE = ..\..\LICENSE
+		..\..\README.md = ..\..\README.md
 	EndProjectSection
 EndProject
 Global

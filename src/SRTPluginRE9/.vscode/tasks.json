@@ -1,0 +1,19 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "runInjector",
+            "type": "process",
+            "command": "SRTPluginRE9.Injector.exe",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true,
+                "close": false
+            },
+            "options": {
+                "cwd": "${workspaceFolder}/bin/Debug/Win/x64/MSVC/Debug"
+            }
+        }
+    ]
+}
