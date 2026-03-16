@@ -95,8 +95,8 @@ jobs:
         run: |
           dotnet build ${{steps.generated-variables-1.outputs.solution}} -c "${{env.configuration}}" /p:Platform="${{env.platform}}"
 
-      - name: Upload publish artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload C# artifacts
+        uses: actions/upload-artifact@v7
         with:
           path: |
             ${{steps.generated-variables-1.outputs.build-directory}}*
@@ -137,8 +137,8 @@ jobs:
         working-directory: ${{ env.working-directory }}
         run: cmake --build --preset "${{ env.preset }}" --config ${{ env.configuration }}
 
-      - name: Upload publish artifacts
-        uses: actions/upload-artifact@v4
+      - name: Upload C++ artifacts
+        uses: actions/upload-artifact@v7
         with:
           path: |
             ${{ env.working-directory }}/bin/${{ env.preset }}/${{ env.configuration }}/SRTPluginRE9.dll
@@ -162,7 +162,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       # Zip the publish artifacts
       - name: Zip the publish artifacts
