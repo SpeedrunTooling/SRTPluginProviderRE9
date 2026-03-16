@@ -130,9 +130,11 @@ jobs:
           .\bootstrap-vcpkg.bat
 
       - name: Configure
+        working-directory: ${{ env.working-directory }}
         run: cmake --preset "${{ env.preset }}"
 
       - name: Build
+        working-directory: ${{ env.working-directory }}
         run: cmake --build --preset "${{ env.preset }}" --config ${{ env.configuration }}
 
       - name: Upload publish artifacts
