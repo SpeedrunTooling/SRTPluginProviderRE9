@@ -114,8 +114,8 @@ jobs:
       - name: Print tool versions
         run: |
           cmake --version
-          echo "VCPKG_ROOT=$env:VCPKG_ROOT"
-          "$env:VCPKG_ROOT\vcpkg" version
+          $($env:VCPKG_ROOT)
+          . "$($env:VCPKG_ROOT)\vcpkg.exe" version
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -124,7 +124,7 @@ jobs:
 
       - name: Bootstrap vcpkg
         run: |
-          cd "$env:VCPKG_ROOT"
+          cd "$($env:VCPKG_ROOT)"
           git pull
           .\bootstrap-vcpkg.bat
 
