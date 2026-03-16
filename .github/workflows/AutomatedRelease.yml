@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  baseFolderName: SRTPluginProviderRE9
+  platform: x64
+  configuration: Release
+
 jobs:
   build-csharp:
     name: "Build (C#)"
@@ -13,8 +18,6 @@ jobs:
     env:
       working-directory: .
       project-name: SRTPluginProviderRE9
-      platform: x64
-      configuration: Release
     outputs:
       project-name: ${{env.project-name}}
       solution: ${{steps.generated-variables-1.outputs.solution}}
@@ -172,11 +175,16 @@ jobs:
           Add-Type -assembly 'System.IO.Compression'
           Add-Type -assembly 'System.IO.Compression.FileSystem'
           [System.IO.Compression.ZipArchive]$zipFile = [System.IO.Compression.ZipFile]::Open('${{needs.build-csharp.outputs.zip-filename}}', ([System.IO.Compression.ZipArchiveMode]::Create))
-          [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipFile, 'LICENSE', '${{needs.build-csharp.outputs.project-name}}\LICENSE')
-          $filesToZip = (Get-ChildItem -Path artifact -File -Recurse).FullName
+          [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipFile, 'LICENSE', ('${{env.baseFolderName}}\' + 'LICENSE'))
+          $filesToZip = (Get-ChildItem -Path ArtifactsCsharp -File -Recurse).FullName
           foreach ($fileToZip in $filesToZip) {
-            $fileNameInZip = $fileToZip.Replace(($pwd.Path + '\artifact\'),'')
-            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipFile, $fileToZip, ('${{needs.build-csharp.outputs.project-name}}\' + $fileNameInZip))
+            $fileNameInZip = $fileToZip.Replace(($pwd.Path + '\ArtifactsCsharp\'),'')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipFile, $fileToZip, ('${{env.baseFolderName}}\' + $fileNameInZip))
+          }
+          $filesToZip = (Get-ChildItem -Path ArtifactsCpp -File -Recurse).FullName
+          foreach ($fileToZip in $filesToZip) {
+            $fileNameInZip = $fileToZip.Replace(($pwd.Path + '\ArtifactsCpp\'),'')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipFile, $fileToZip, ('${{env.baseFolderName}}\' + $fileNameInZip))
           }
           $zipFile.Dispose()
 
