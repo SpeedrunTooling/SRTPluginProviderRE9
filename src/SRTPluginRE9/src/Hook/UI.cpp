@@ -166,7 +166,7 @@ namespace SRTPluginRE9::Hook
 		}
 
 		ImGui::Text("Resident Evil 9 Requiem (2026) Speed Run Tool");
-		// ImGui::Text("v%s", SRTPluginRE9::Version::SemVer.data());
+		ImGui::Text("v%s", SRTPluginRE9::Version::SemVer.data());
 		ImGui::Separator();
 		ImGui::BulletText("Contributors\n\tSquirrelies\n\tHntd");
 		ImGui::Spacing();

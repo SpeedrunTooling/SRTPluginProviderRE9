@@ -12,6 +12,51 @@
 #include <optional>
 #include <windows.h>
 
+namespace SRTPluginRE9::Version
+{
+// Major version number. This is defined at compile time so this is just a placeholder.
+#ifndef APP_VERSION_MAJOR
+#define APP_VERSION_MAJOR 0
+#endif
+	constinit const uint8_t Major = APP_VERSION_MAJOR;
+
+// Minor version number. This is defined at compile time so this is just a placeholder.
+#ifndef APP_VERSION_MINOR
+#define APP_VERSION_MINOR 1
+#endif
+	constinit const uint8_t Minor = APP_VERSION_MINOR;
+
+// Patch version number. This is defined at compile time so this is just a placeholder.
+#ifndef APP_VERSION_PATCH
+#define APP_VERSION_PATCH 0
+#endif
+	constinit const uint8_t Patch = APP_VERSION_PATCH;
+
+// Build number. This is defined at compile time so this is just a placeholder.
+#ifndef APP_VERSION_BUILD
+#define APP_VERSION_BUILD 1
+#endif
+	constinit const uint8_t Build = APP_VERSION_BUILD;
+
+// Pre-release tag. This is defined at compile time so this is just a placeholder.
+#ifndef APP_VERSION_PRERELEASE_TAG
+#define APP_VERSION_PRERELEASE_TAG ""
+#endif
+	constinit const std::string_view PreReleaseTag = APP_VERSION_PRERELEASE_TAG;
+
+// Build SHA hash. This is defined at compile time so this is just a placeholder.
+#ifndef APP_VERSION_BUILD_HASH
+#define APP_VERSION_BUILD_HASH ""
+#endif
+	constinit const std::string_view BuildHash = APP_VERSION_BUILD_HASH;
+
+// Semantic Versioning string. This is defined at compile time so this is just a placeholder.
+#ifndef APP_VERSION_SEMVER
+#define APP_VERSION_SEMVER "0.1.0+1"
+#endif
+	constinit const std::string_view SemVer = APP_VERSION_SEMVER;
+}
+
 struct FrameContext
 {
 	Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator;
