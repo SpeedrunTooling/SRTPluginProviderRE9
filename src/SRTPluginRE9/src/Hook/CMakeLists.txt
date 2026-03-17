@@ -72,7 +72,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     PUBLIC imgui::imgui
-    PRIVATE minhook d3d12 d3dcompiler dxgi dinput8 dxguid
+    PRIVATE minhook d3d12 d3dcompiler dxgi dinput8 dxguid dbghelp
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

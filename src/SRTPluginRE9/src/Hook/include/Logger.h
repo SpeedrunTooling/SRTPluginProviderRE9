@@ -38,6 +38,7 @@ namespace SRTPluginRE9::Logger
 		{
 			LogMessage(std::vformat(fmt, std::make_format_args(args...)));
 		}
+
 		void LogException(const std::exception &ex, const std::source_location &location = std::source_location::current());
 
 	private:

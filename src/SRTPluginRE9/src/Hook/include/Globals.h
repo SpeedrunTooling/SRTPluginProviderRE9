@@ -38,38 +38,47 @@ struct DX12HookState
 	bool initialized = false;
 };
 
-struct PositionalData
+extern "C"
 {
-	float_t X;
-	float_t Y;
-	float_t Z;
-	// Store quaternion data also?
-};
+	struct InteropArray
+	{
+		int32_t Size;
+		void *Values;
+	};
 
-struct HPData
-{
-	int32_t PlayerCurrentHP;
-	int32_t PlayerMaxHP;
-	bool IsSetup;
-};
+	struct PositionalData
+	{
+		float_t X;
+		float_t Y;
+		float_t Z;
+		// Store quaternion data also?
+	};
 
-struct EnemyData
-{
-	int32_t KindID;
-	HPData HP;
-	PositionalData Position;
-};
+	struct HPData
+	{
+		int32_t PlayerCurrentHP;
+		int32_t PlayerMaxHP;
+		bool IsSetup;
+	};
 
-struct SRTGameData
-{
-	std::array<uint64_t, 13> InGameTimers;
-	uint32_t RunningTimers; // Enum
-	int32_t DARank;
-	int32_t DAScore;
-	HPData PlayerHP;
-	std::vector<EnemyData> Enemies; // Pre-filtered enemies.
-	uint32_t TotalEnemyCount;       // Total amount of enemies.
-};
+	struct EnemyData
+	{
+		int32_t KindID;
+		HPData HP;
+		PositionalData Position;
+	};
+
+	struct SRTGameData
+	{
+		InteropArray InGameTimers; // [13]
+		uint32_t RunningTimers;    // Enum
+		int32_t DARank;
+		int32_t DAScore;
+		HPData PlayerHP;
+		std::vector<EnemyData> Enemies; // Pre-filtered enemies.
+		uint32_t TotalEnemyCount;       // Total amount of enemies.
+	};
+}
 
 extern HMODULE g_dllModule;
 extern HANDLE g_mainThread;

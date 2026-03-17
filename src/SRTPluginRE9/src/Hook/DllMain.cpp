@@ -2,7 +2,10 @@
 
 #include "Hook.h"
 #include "Logger.h"
+#include <DbgHelp.h>
+#include <chrono>
 #include <mutex>
+#include <string>
 
 HMODULE g_dllModule = nullptr;
 HANDLE g_mainThread = nullptr;
@@ -10,6 +13,51 @@ FILE *g_logFile = nullptr;
 SRTPluginRE9::Logger::Logger *logger = nullptr;
 SRTPluginRE9::Logger::LoggerUIData *g_LoggerUIData = nullptr;
 std::mutex g_LogMutex;
+
+const std::wstring GetCrashDumpFileName()
+{
+	return std::format(L"SRTPluginRE9_{:%Y%m%d-%H%M%S}UTC.dmp", std::chrono::utc_clock::now());
+}
+
+LONG WINAPI SRTUnhandledExceptionFilter(EXCEPTION_POINTERS *pExceptionInfo)
+{
+	// Write error information to our log file.
+	if (logger)
+		logger->LogMessage("Exception {:x} occurred at {:p}!", pExceptionInfo->ExceptionRecord->ExceptionCode, pExceptionInfo->ExceptionRecord->ExceptionAddress);
+
+	// Create the dump file
+	auto hFile = CreateFileW(
+	    GetCrashDumpFileName().c_str(),
+	    GENERIC_WRITE,
+	    0, // Exclusive access.
+	    nullptr,
+	    CREATE_ALWAYS,
+	    FILE_ATTRIBUTE_NORMAL,
+	    nullptr);
+
+	if (hFile != INVALID_HANDLE_VALUE)
+	{
+		MINIDUMP_EXCEPTION_INFORMATION miniDumpEI{
+		    .ThreadId = GetCurrentThreadId(),
+		    .ExceptionPointers = pExceptionInfo,
+		    .ClientPointers = FALSE};
+
+		MiniDumpWriteDump(
+		    GetCurrentProcess(),
+		    GetCurrentProcessId(),
+		    hFile,
+		    MiniDumpNormal, // See below for richer options
+		    &miniDumpEI,
+		    nullptr, // UserStreamParam (optional)
+		    nullptr  // CallbackParam   (optional)
+		);
+
+		CloseHandle(hFile);
+	}
+
+	// Let other handlers process the exception including REFramework or WER (Windows Error Reporting).
+	return EXCEPTION_CONTINUE_SEARCH;
+}
 
 // DLL Entry Point
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
@@ -20,6 +68,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 
 		// Disable thread notifications for performance
 		DisableThreadLibraryCalls(hModule);
+
+		// Set unhandled exception handler.
+		SetUnhandledExceptionFilter(SRTUnhandledExceptionFilter);
 
 		if ((g_logFile = _fsopen("SRTPluginRE9.log", "w", SH_DENYNO)) != nullptr)
 		{
