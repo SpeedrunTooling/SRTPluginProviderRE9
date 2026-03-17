@@ -3,28 +3,92 @@ name: "Automated Release"
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      buildConfiguration:
+        description: "Build Configuration"
+        required: true
+        default: "Release"
+        type: choice
+        options:
+          - Release
+          - Debug
+      versionPreReleaseTag: # Use alpha, beta, or rc for pre-release. An empty string for stable.
+        description: "Pre-Release Tag"
+        required: true
+        default: "alpha"
+        type: choice
+        options:
+          - "alpha"
+          - "beta"
+          - "RC"
+          - ""
 
 env:
+  projectName: SRTPluginProviderRE9
   baseFolderName: SRTPluginProviderRE9
   platform: x64
-  configuration: Release
+  configuration: ${{ github.event.inputs.buildConfiguration || 'Release' }}
 
 jobs:
+  setup:
+    name: Setup Environment
+    runs-on: windows-2025-vs2026
+
+    outputs:
+      verMajor: ${{steps.version-parts.outputs.version_major}}
+      verMinor: ${{steps.version-parts.outputs.version_minor}}
+      verPatch: ${{steps.version-parts.outputs.version_patch}}
+      verPreReleaseTag: ${{steps.version-parts.outputs.version_prereltag}}
+      verBuild: ${{steps.build-number.outputs.current_build_number}}
+      verSHAHash: ${{steps.short-sha-hash.outputs.short_sha_hash}}
+      verSemVerString: ${{steps.semver-string.outputs.semver_string}}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version parts
+        id: version-parts
+        run: |
+          [string[]]$versionParts = (Get-Content -Path "version.txt" -Raw).Split('.');
+          echo "version_major=$versionParts[0]" | Set-Content $env:GITHUB_OUTPUT
+          echo "version_minor=$versionParts[1]" | Set-Content $env:GITHUB_OUTPUT
+          echo "version_patch=$versionParts[2]" | Set-Content $env:GITHUB_OUTPUT
+          echo "version_prereltag=${{ github.event.inputs.versionPreReleaseTag || '' }}" | Set-Content $env:GITHUB_OUTPUT
+
+      - name: Get new build number
+        id: build-number
+        run: |
+          $build_number = $((${{ vars.BUILD_NUMBER }} + 1))
+          echo "current_build_number=$build_number" | Set-Content $env:GITHUB_OUTPUT
+
+      - name: Get short SHA hash
+        id: short-sha-hash
+        run: |
+          $short_sha_hash = $(("${{ github.sha }}".substring(0, 7)))
+          echo "short_sha_hash=$short_sha_hash" | Set-Content $env:GITHUB_OUTPUT
+
+      - name: Get SemVer string
+        id: semver-string
+        run: |
+          [string]$semver_string = "${{steps.version-parts.outputs.version_major}}.${{steps.version-parts.outputs.version_minor}}.${{steps.version-parts.outputs.version_patch}}";
+          if (![string]::IsNullOrWhitespace("${{steps.version-parts.outputs.version_prereltag}}")) {
+            $semver_string += "-${{steps.version-parts.outputs.version_prereltag}}";
+          }
+          $semver_string += "+${{steps.build-number.outputs.current_build_number}}";
+          $semver_string += ".${{steps.short-sha-hash.outputs.short_sha_hash}}";
+          echo "semver_string=$semver_string" | Set-Content $env:GITHUB_OUTPUT;
+
   build-csharp:
     name: "Build (C#)"
-    runs-on: "windows-2025-vs2026"
+    runs-on: windows-2025-vs2026
+    needs: setup
     env:
       working-directory: .
       project-name: SRTPluginProviderRE9
-    outputs:
-      project-name: ${{env.project-name}}
-      solution: ${{steps.generated-variables-1.outputs.solution}}
-      project: ${{steps.generated-variables-1.outputs.project}}
-      build-directory: ${{steps.generated-variables-1.outputs.build-directory}}
-      zip-filename: ${{steps.generated-variables-2.outputs.zip-filename}}
-      version: ${{steps.get_version.outputs.RELEASE_VERSION}}
 
     steps:
       # Checkout latest code
@@ -65,26 +129,11 @@ jobs:
       - name: Move ProcessMemory down a folder to work with existing csproj pathing
         run: Move-Item -Path ProcessMemory -Destination ..\..\Squirrelies
 
-      # Set some output variables
-      - name: Set the main environment variables based on other environment variables
-        id: generated-variables-1
+      - name: Set versioning environment variable
         run: |
-          echo '::set-output name=solution::src/${{env.project-name}}/${{env.project-name}}.sln'
-          echo '::set-output name=project::src/${{env.project-name}}/${{env.project-name}}.csproj'
-          echo '::set-output name=build-directory::src/${{env.project-name}}/bin/Release/${{env.platform}}/net5.0/'
-
-      # Get the project's version number
-      - name: Get project version
-        id: get_version
-        uses: greenygh0st/net-proj-release-version@v2
-        with:
-          PROJ_FILE: ${{steps.generated-variables-1.outputs.project}}
-
-      # Sets the zip-filename output variable based on the project version
-      - name: Sets the zip-filename environment variable based on the project version
-        id: generated-variables-2
-        run: |
-          echo '::set-output name=zip-filename::${{env.project-name}}-v${{steps.get_version.outputs.RELEASE_VERSION}}.zip'
+          echo 'VERSION=${{needs.Setup.outputs.verSemVerString}}' >> $env:GITHUB_ENV
+          echo 'FILEVERSION=${{needs.Setup.outputs.verMajor}}.${{needs.Setup.outputs.verMinor}}.${{needs.Setup.outputs.verPatch}}.${{needs.Setup.outputs.verBuild}}' >> $env:GITHUB_ENV
+          echo 'ASSEMBLYVERSION=${{needs.Setup.outputs.verMajor}}.${{needs.Setup.outputs.verMinor}}.0.0' >> $env:GITHUB_ENV
 
       # Install .NET
       - name: Install .NET
@@ -94,26 +143,31 @@ jobs:
           dotnet-quality: "ga"
 
       # Compiles the plugin
-      - name: Compile the plugin
+      - name: Build
         run: |
-          dotnet build ${{steps.generated-variables-1.outputs.solution}} -c "${{env.configuration}}" /p:Platform="${{env.platform}}"
+          dotnet build "src/${{env.projectName}}/${{env.projectName}}.sln" /p:"Configuration=${{env.configuration}};Platform=${{env.platform}};VERSION=$env:VERSION;FILEVERSION=$env:FILEVERSION;ASSEMBLYVERSION=$env:ASSEMBLYVERSION"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
           name: ArtifactsCsharp
           path: |
-            ${{steps.generated-variables-1.outputs.build-directory}}*
+            src/${{env.projectName}}/bin/${{env.configuration}}/${{env.platform}}/net5.0/*
 
   build-cpp:
     name: "Build (C++)"
-    runs-on: "windows-2025-vs2026"
+    runs-on: windows-2025-vs2026
+    needs: setup
     env:
       VCPKG_ROOT: C:\vcpkg
       working-directory: src/SRTPluginRE9
-      configuration: Release
-      preset: Release/Win/x64/MSVC
       VCPKG_TARGET_TRIPLET: x64-windows-static
+      RC_VERSION_MAJOR: ${{needs.Setup.outputs.verMajor}}
+      RC_VERSION_MINOR: ${{needs.Setup.outputs.verMinor}}
+      RC_VERSION_PATCH: ${{needs.Setup.outputs.verPatch}}
+      RC_VERSION_BUILD: ${{needs.Setup.outputs.verBuild}}
+      RC_VERSION_PRERELEASE_TAG: ${{needs.Setup.outputs.verPreReleaseTag}}
+      RC_VERSION_BUILD_HASH: ${{needs.Setup.outputs.verSHAHash}}
 
     steps:
       - name: Print tool versions
@@ -135,26 +189,26 @@ jobs:
 
       - name: Configure
         working-directory: ${{ env.working-directory }}
-        run: cmake --preset "${{ env.preset }}"
+        run: cmake --preset "${{ env.configuration }}/Win/x64/MSVC"
 
       - name: Build
         working-directory: ${{ env.working-directory }}
-        run: cmake --build --preset "${{ env.preset }}" --config ${{ env.configuration }}
+        run: cmake --build --preset "${{ env.configuration }}/Win/x64/MSVC" --config ${{ env.configuration }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
           name: ArtifactsCpp
           path: |
-            ${{ env.working-directory }}/bin/${{ env.preset }}/${{ env.configuration }}/SRTPluginRE9.dll
-            ${{ env.working-directory }}/bin/${{ env.preset }}/${{ env.configuration }}/SRTPluginRE9.pdb
-            ${{ env.working-directory }}/bin/${{ env.preset }}/${{ env.configuration }}/SRTPluginRE9.Injector.exe
-            ${{ env.working-directory }}/bin/${{ env.preset }}/${{ env.configuration }}/SRTPluginRE9.Injector.pdb
+            ${{ env.working-directory }}/bin/${{ env.configuration }}/Win/x64/MSVC/${{ env.configuration }}/SRTPluginRE9.dll
+            ${{ env.working-directory }}/bin/${{ env.configuration }}/Win/x64/MSVC/${{ env.configuration }}/SRTPluginRE9.pdb
+            ${{ env.working-directory }}/bin/${{ env.configuration }}/Win/x64/MSVC/${{ env.configuration }}/SRTPluginRE9.Injector.exe
+            ${{ env.working-directory }}/bin/${{ env.configuration }}/Win/x64/MSVC/${{ env.configuration }}/SRTPluginRE9.Injector.pdb
 
   package:
     name: "Package"
     runs-on: "windows-2025-vs2026"
-    needs: [build-csharp, build-cpp]
+    needs: [build-csharp, build-cpp, setup]
     env:
       working-directory: .
       is-prerelease: true
@@ -174,7 +228,7 @@ jobs:
         run: |
           Add-Type -assembly 'System.IO.Compression'
           Add-Type -assembly 'System.IO.Compression.FileSystem'
-          [System.IO.Compression.ZipArchive]$zipFile = [System.IO.Compression.ZipFile]::Open('${{needs.build-csharp.outputs.zip-filename}}', ([System.IO.Compression.ZipArchiveMode]::Create))
+          [System.IO.Compression.ZipArchive]$zipFile = [System.IO.Compression.ZipFile]::Open('${{env.projectName}}_${{needs.Setup.outputs.verSemVerString}}.zip', ([System.IO.Compression.ZipArchiveMode]::Create))
           [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zipFile, 'LICENSE', ('${{env.baseFolderName}}\' + 'LICENSE'))
           $filesToZip = (Get-ChildItem -Path ArtifactsCsharp -File -Recurse).FullName
           foreach ($fileToZip in $filesToZip) {

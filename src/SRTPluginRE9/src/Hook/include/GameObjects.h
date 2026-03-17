@@ -25,7 +25,7 @@ struct ManagedArray // 0x20+ (32+)
 	const uintptr_t FieldPtr;      // 0x10 - 0x17 (8) Field Pointer?
 	const uint8_t _unknown2[0x4];  // 0x18 - 0x1B (4) Unknown bytes
 	const uint32_t _Count;         // 0x1C - 0x1F (4)  Array size
-	T *_Values;                    // 0x20 - 0x?? (??) Array elements
+	T _Values[];                   // 0x20 - 0x?? (??) Array elements
 
 	const uint32_t Count() const
 	{

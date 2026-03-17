@@ -80,6 +80,20 @@ extern "C"
 	};
 }
 
+// Double-buffered to allow the main thread and UI thread to operate on data independently.
+struct GameDataBuffer
+{
+	SRTGameData Data{};
+
+	// Backing storage - InteropArray::Values will point into these.
+	std::vector<EnemyData> AllEnemiesBacking{};
+	std::vector<EnemyData> FilteredEnemiesBacking{};
+	std::vector<uint64_t> TimersBacking{};
+};
+
+inline GameDataBuffer g_GameDataBuffers[2]{};
+inline std::atomic<uint32_t> g_GameDataBufferReadIndex{0};
+
 extern HMODULE g_dllModule;
 extern HANDLE g_mainThread;
 extern FILE *g_logFile;
@@ -90,7 +104,5 @@ extern DX12HookState g_dx12HookState;
 extern std::atomic<bool> g_shutdownRequested;
 extern std::mutex g_LogMutex;
 extern DeferredWndProc g_DeferredWndProc;
-
-extern std::atomic<SRTGameData> g_SRTGameData;
 
 #endif

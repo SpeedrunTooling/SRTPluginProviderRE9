@@ -343,7 +343,8 @@ namespace SRTPluginRE9::Hook
 		ImGui::SetNextWindowBgAlpha(debugOverlayUIOptions.Opacity);
 		if (ImGui::Begin("SRT Debug Overlay", &debugOverlayUIOptions.Open, window_flags))
 		{
-			auto localGameData = g_SRTGameData.load();
+			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
+			const auto &localGameData = g_GameDataBuffers[readIndex].Data;
 
 			// DA
 			ImGui::Text("Rank: %" PRIi32, localGameData.DARank);
@@ -354,8 +355,9 @@ namespace SRTPluginRE9::Hook
 			ImGui::Separator();
 
 			// Enemies
-			ImGui::Text("Enemies (%zu of %zu):", std::min(16ULL, localGameData.AllEnemies.Size), localGameData.FilteredEnemies.Size);
-			for (const auto &enemyData : std::span<EnemyData>(reinterpret_cast<EnemyData *>(localGameData.FilteredEnemies.Values), localGameData.FilteredEnemies.Size))
+			auto enemiesToShow = std::min(enemyCountLimit, localGameData.FilteredEnemies.Size);
+			ImGui::Text("Enemies (%zu of %zu):", enemiesToShow, localGameData.FilteredEnemies.Size);
+			for (const auto &enemyData : std::span<EnemyData>(reinterpret_cast<EnemyData *>(localGameData.FilteredEnemies.Values), localGameData.FilteredEnemies.Size) | std::views::take(enemyCountLimit))
 			{
 				if (enemyData.HP.CurrentHP != enemyData.HP.MaximumHP)
 					ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "%" PRIi32 " / %" PRIi32, enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);

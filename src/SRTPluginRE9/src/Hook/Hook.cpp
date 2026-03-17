@@ -37,8 +37,6 @@ inline std::atomic g_firstRunPresent = true;
 
 DeferredWndProc g_DeferredWndProc;
 
-std::atomic<SRTGameData> g_SRTGameData;
-
 namespace SRTPluginRE9::Hook
 {
 	[[nodiscard]] std::optional<std::uintptr_t> get_module_base(const wchar_t *module_name) noexcept
@@ -639,61 +637,67 @@ namespace SRTPluginRE9::Hook
 		}
 
 		// Read until shutdown requested.
-		SRTGameData localGameData{};
 		auto rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E815400ULL)).deref();
 		auto characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E843CF8ULL)).deref();
 		auto gameClock = protect(reinterpret_cast<GameClock **>(*g_BaseAddress + 0x0E834680ULL)).deref();
 		// auto cameraSystem = protect(reinterpret_cast<CameraSystem **>(*g_BaseAddress + 0x0E816138ULL)).deref();
 		while (!g_shutdownRequested.load())
 		{
+			// Acquire an index to buffer data write into and get a reference to that data buffer.
+			auto writeIndex = 1U - g_GameDataBufferReadIndex.load(std::memory_order_acquire);
+			auto &localGameData = g_GameDataBuffers[writeIndex];
+
 			// DA
 			auto activeRankProfile = rankManager.follow(&RankManager::_ActiveRankProfile);
-			localGameData.DARank = activeRankProfile.read(&RankProfile::_CurrentRank);
-			localGameData.DAScore = activeRankProfile.read(&RankProfile::_RankPoints);
+			localGameData.Data.DARank = activeRankProfile.read(&RankProfile::_CurrentRank);
+			localGameData.Data.DAScore = activeRankProfile.read(&RankProfile::_RankPoints);
 
 			// Player HP
 			auto activePlayerContext = characterManager.follow(&CharacterManager::PlayerContextFast);
 			auto playerHitPoint = activePlayerContext.follow(&PlayerContext::HitPoint);
 			auto playerHitPointData = playerHitPoint.follow(&HitPoint::HitPointData);
-			localGameData.PlayerHP.CurrentHP = playerHitPointData.read(&CharacterHitPointData::_CurrentHP);
-			localGameData.PlayerHP.MaximumHP = playerHitPointData.read(&CharacterHitPointData::_CurrentMaxHP);
-			localGameData.PlayerHP.IsSetup = playerHitPointData.read(&CharacterHitPointData::_IsSetuped);
+			localGameData.Data.PlayerHP.CurrentHP = playerHitPointData.read(&CharacterHitPointData::_CurrentHP);
+			localGameData.Data.PlayerHP.MaximumHP = playerHitPointData.read(&CharacterHitPointData::_CurrentMaxHP);
+			localGameData.Data.PlayerHP.IsSetup = playerHitPointData.read(&CharacterHitPointData::_IsSetuped);
 
 			// Enemy HP
 			auto enemyContextManagedList = characterManager.follow(&CharacterManager::EnemyContextList);
-			auto allEnemiesVector = std::span<EnemyContext *>(
-			                            enemyContextManagedList
-			                                .follow(&ManagedList<EnemyContext *>::Values)
-			                                .read(&ManagedArray<EnemyContext *>::_Values),
-			                            enemyContextManagedList
-			                                .read(&ManagedList<EnemyContext *>::Size)) |
-			                        std::views::filter([](EnemyContext *enemyContext)
-			                                           { return enemyContext && enemyContext->HitPoint && enemyContext->HitPoint->HitPointData; }) |
-			                        std::views::transform([](EnemyContext *enemyContext)
-			                                              { return EnemyData{.KindID = enemyContext->KindID, .HP = HPData{.CurrentHP = enemyContext->HitPoint->HitPointData->_CurrentHP, .MaximumHP = enemyContext->HitPoint->HitPointData->_CurrentMaxHP, .IsSetup = enemyContext->HitPoint->HitPointData->_IsSetuped != 0}, .Position = PositionalData{}}; }) |
-			                        std::ranges::to<std::vector>();
+			localGameData.AllEnemiesBacking = std::span<EnemyContext *>(enemyContextManagedList->begin(), enemyContextManagedList->end()) |
+			                                  std::views::transform([](const EnemyContext *enemyContext)
+			                                                        {
+				                                              auto protectedEnemyContext = protect(enemyContext);
+				                                              auto hitPointData = protectedEnemyContext.follow(&EnemyContext::HitPoint).follow(&HitPoint::HitPointData);
+				                                              return EnemyData
+				                                              {
+				                                              	.KindID = protectedEnemyContext.read(&EnemyContext::KindID),
+				                                              	.HP = HPData
+				                                              	{
+				                                              		.CurrentHP = hitPointData.read(&CharacterHitPointData::_CurrentHP),
+				                                              		.MaximumHP = hitPointData.read(&CharacterHitPointData::_CurrentMaxHP),
+				                                              		.IsSetup = hitPointData.read(&CharacterHitPointData::_IsSetuped) != 0
+				                                              	},
+				                                              	.Position = PositionalData{}
+				                                              }; }) |
+			                                  std::ranges::to<std::vector>();
 
-			localGameData.AllEnemies = InteropArray{
-			    .Size = allEnemiesVector.size(),
-			    .Values = allEnemiesVector.data()};
+			localGameData.Data.AllEnemies = InteropArray{
+			    .Size = localGameData.AllEnemiesBacking.size(),
+			    .Values = localGameData.AllEnemiesBacking.data()};
 
-			auto userFilteredVector = allEnemiesVector |
-			                          std::views::filter([](const EnemyData &enemyData)
-			                                             { return enemyData.HP.MaximumHP >= 2 && enemyData.HP.CurrentHP != 0; }) |
-			                          std::ranges::to<std::vector>();
+			localGameData.FilteredEnemiesBacking = localGameData.AllEnemiesBacking |
+			                                       std::views::filter([](const EnemyData &enemyData)
+			                                                          { return enemyData.HP.MaximumHP >= 2 && enemyData.HP.CurrentHP != 0; }) |
+			                                       std::ranges::to<std::vector>();
 
 			auto compare = OrderByDescending([](const EnemyData &enemyData)
 			                                 { return enemyData.HP.CurrentHP < enemyData.HP.MaximumHP; })
 			                   .ThenByDescending([](const EnemyData &enemyData)
 			                                     { return enemyData.HP.MaximumHP; });
-			std::ranges::sort(userFilteredVector, compare);
-			userFilteredVector = userFilteredVector |
-			                     std::views::take(16ULL) |
-			                     std::ranges::to<std::vector>();
+			std::ranges::sort(localGameData.FilteredEnemiesBacking, compare);
 
-			localGameData.FilteredEnemies = InteropArray{
-			    .Size = userFilteredVector.size(),
-			    .Values = userFilteredVector.data()};
+			localGameData.Data.FilteredEnemies = InteropArray{
+			    .Size = localGameData.FilteredEnemiesBacking.size(),
+			    .Values = localGameData.FilteredEnemiesBacking.data()};
 
 			//// IGT
 			// auto allTimersVector = std::span<Time *>(
@@ -711,8 +715,8 @@ namespace SRTPluginRE9::Hook
 			//     .Size = allTimersVector.size(),
 			//     .Values = allTimersVector.data()};
 
-			// Replace global variable with our recently read data results.
-			g_SRTGameData.store(localGameData);
+			// Release this index back to the data buffer.
+			g_GameDataBufferReadIndex.store(writeIndex, std::memory_order_release);
 
 			// Sleep until next read operation.
 			Sleep(memoryReadIntervalInMS);
