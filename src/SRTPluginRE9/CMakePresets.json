@@ -63,12 +63,14 @@
         {
             "name": "Debug/Win/x64/MSVC",
             "displayName": "Debug (Windows x64 - MSVC)",
-            "configurePreset": "Debug/Win/x64/MSVC"
+            "configurePreset": "Debug/Win/x64/MSVC",
+            "configuration": "Debug"
         },
         {
             "name": "Release/Win/x64/MSVC",
             "displayName": "Release (Windows x64 - MSVC)",
-            "configurePreset": "Release/Win/x64/MSVC"
+            "configurePreset": "Release/Win/x64/MSVC",
+            "configuration": "RelWithDebInfo"
         }
     ],
     "testPresets": [
