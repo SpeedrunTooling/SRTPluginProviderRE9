@@ -37,6 +37,7 @@ namespace SRTPluginRE9::Hook
 		[[nodiscard]] DescriptorHandle Allocate() noexcept;
 
 		void Free(DescriptorHandle &handle) noexcept;
+		void Free(SIZE_T cpuPtr, UINT64 gpuPtr) noexcept;
 
 		[[nodiscard]] ID3D12DescriptorHeap *GetHeap() const noexcept { return heap.Get(); }
 

@@ -32,7 +32,7 @@ inline std::atomic<bool> g_shutdownRequested = false;
 inline std::mutex g_queueMutex;
 inline ID3D12CommandQueue *g_lastSeenDirectQueue = nullptr;
 
-SRTPluginRE9::Hook::DescriptorHandle imguiFontHandle;
+// SRTPluginRE9::Hook::DescriptorHandle imguiFontHandle;
 inline std::atomic g_firstRunPresent = true;
 
 DeferredWndProc g_DeferredWndProc;
@@ -253,7 +253,7 @@ namespace SRTPluginRE9::Hook
 		}
 		g_dx12HookState.commandList->Close();
 
-		imguiFontHandle = g_dx12HookState.heaps.srv.Allocate();
+		ImGui_ImplWin32_EnableDpiAwareness();
 
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
@@ -264,13 +264,36 @@ namespace SRTPluginRE9::Hook
 		io.IniFilename = "SRTRE9_ImGui.ini";
 		io.LogFilename = "SRTRE9_ImGui.log";
 
+		// Setup scaling
+		ImGuiStyle &style = ImGui::GetStyle();
+		auto mainScale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
+		style.ScaleAllSizes(mainScale);
+		style.FontScaleDpi = mainScale;
+		style.FontSizeBase = 16.0f;
+		io.Fonts->AddFontDefaultVector();
+
 		ImGui_ImplWin32_Init(g_dx12HookState.gameWindow);
-		ImGui_ImplDX12_Init(g_dx12HookState.device.Get(),
-		                    static_cast<int>(g_dx12HookState.bufferCount),
-		                    backBufferFormat,
-		                    g_dx12HookState.heaps.srv.GetHeap(),
-		                    imguiFontHandle.cpu,
-		                    imguiFontHandle.gpu);
+
+		ImGui_ImplDX12_InitInfo init_info = {};
+		init_info.Device = g_dx12HookState.device.Get();
+		init_info.CommandQueue = g_dx12HookState.commandQueue;
+		init_info.NumFramesInFlight = static_cast<int>(g_dx12HookState.bufferCount);
+		init_info.RTVFormat = backBufferFormat;
+		init_info.DSVFormat = DXGI_FORMAT_UNKNOWN;
+		// Allocating SRV descriptors (for textures) is up to the application, so we provide callbacks.
+		// (current version of the backend will only allocate one descriptor, future versions will need to allocate more)
+		init_info.SrvDescriptorHeap = g_dx12HookState.heaps.srv.GetHeap();
+		init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo *, D3D12_CPU_DESCRIPTOR_HANDLE *out_cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE *out_gpu_handle)
+		{
+			auto allocHandles = g_dx12HookState.heaps.srv.Allocate();
+			*out_cpu_handle = allocHandles.cpu;
+			*out_gpu_handle = allocHandles.gpu;
+		};
+		init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo *, D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle)
+		{
+			g_dx12HookState.heaps.srv.Free(cpu_handle.ptr, gpu_handle.ptr);
+		};
+		ImGui_ImplDX12_Init(&init_info);
 
 		// Create the SRT UI class which will allocate a texture on the heap, which should happen here.
 		srtUI = std::make_unique<SRTPluginRE9::Hook::UI>();

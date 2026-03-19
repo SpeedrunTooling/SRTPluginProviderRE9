@@ -6,6 +6,7 @@
 #include "Protected_Ptr.h"
 #include "Render.h"
 #include "imgui.h"
+#include "imgui_impl_win32.h"
 #include <algorithm>
 #include <cinttypes>
 #include <functional>
@@ -43,11 +44,22 @@ namespace SRTPluginRE9::Hook
 		DestroyTexture(&logoTexture);
 	}
 
+	void STDMETHODCALLTYPE UI::RescaleDPI()
+	{
+		ImGuiStyle &style = ImGui::GetStyle() = ImGuiStyle(); // Reset style.
+		ImGui::StyleColorsDark();                             // Set color mode again.
+		style.ScaleAllSizes(dpiScaleFactor);                  // Set scaling.
+		style.FontScaleDpi = dpiScaleFactor;                  // Set font DPI which is not set by the prior method call.
+	}
+
+	void STDMETHODCALLTYPE UI::RescaleFont()
+	{
+		ImGuiStyle &style = ImGui::GetStyle(); // Reset style.
+		style.FontScaleDpi = fontScaleFactor;  // Set font DPI .
+	}
+
 	void STDMETHODCALLTYPE UI::DrawUI()
 	{
-		ImGuiIO &imguiIO = ImGui::GetIO();
-		imguiIO.FontGlobalScale = fontScaleFactor;
-
 		DrawLogoOverlay();
 		DrawMain();
 
@@ -152,11 +164,24 @@ namespace SRTPluginRE9::Hook
 		// Enemy Count Slider
 		ImGui::SliderInt("Limit Enemies Shown", &enemyCountLimit, 1, 32, "%d");
 
+		// DPI Scale Slider.
+		{
+			auto floatDisplay = dpiScaleFactor * 100.0f;
+			if (ImGui::SliderFloat("DPI Scaling Factor", &floatDisplay, 75.0f, 300.0f, "%.0f%%"))
+			{
+				dpiScaleFactor = floatDisplay / 100.0f;
+				UI::RescaleDPI();
+			}
+		}
+
 		// Font Scale Slider.
 		{
 			auto floatDisplay = fontScaleFactor * 100.0f;
-			if (ImGui::SliderFloat("Font Scaling Factor", &floatDisplay, 80.0f, 300.0f, "%.0f%%"))
+			if (ImGui::SliderFloat("Font Scaling Factor", &floatDisplay, 75.0f, 300.0f, "%.0f%%"))
+			{
 				fontScaleFactor = floatDisplay / 100.0f;
+				UI::RescaleFont();
+			}
 		}
 
 		ImGui::End();
@@ -417,5 +442,8 @@ namespace SRTPluginRE9::Hook
 		GetWindowRect(hDesktop, &desktop);
 		horizontal = static_cast<float>(desktop.right);
 		vertical = static_cast<float>(desktop.bottom);
+		dpiScaleFactor = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
+		fontScaleFactor = dpiScaleFactor;
+		UI::RescaleDPI();
 	}
 }

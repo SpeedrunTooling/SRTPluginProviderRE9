@@ -51,6 +51,8 @@ namespace SRTPluginRE9::Hook
 		void STDMETHODCALLTYPE DesktopResized();
 
 	private:
+		void STDMETHODCALLTYPE RescaleDPI();
+		void STDMETHODCALLTYPE RescaleFont();
 		void STDMETHODCALLTYPE BadPointerReport(std::atomic<uint32_t> &, const std::function<bool(void)> &, const std::function<void(void)> &);
 
 		void STDMETHODCALLTYPE DrawMain();
@@ -80,7 +82,8 @@ namespace SRTPluginRE9::Hook
 		static const uint32_t triggerInterval = 120U * 20U; // (120 * 20) = approximately how many frames we wait before we trigger a bad pointer report. Just in case we were loading a new zone.
 
 		int enemyCountLimit = 16;
-		float fontScaleFactor = 1.33f;
+		float dpiScaleFactor = 1.25f;
+		float fontScaleFactor = 1.25f;
 	};
 }
 

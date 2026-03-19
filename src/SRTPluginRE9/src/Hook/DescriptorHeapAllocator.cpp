@@ -80,6 +80,23 @@ namespace SRTPluginRE9::Hook
 		handle = {};
 	}
 
+	void DescriptorHeap::Free(SIZE_T cpuPtr, UINT64 gpuPtr) noexcept
+	{
+		DescriptorHandle handle{
+		    .cpu = cpuPtr,
+		    .gpu = gpuPtr,
+		    .index = static_cast<uint32_t>(gpuPtr - gpuStart.ptr) / descriptorSize // Derive index from a start pointer, current pointer, and size.
+		};
+
+		if (!handle.IsValid() || handle.index >= capacity)
+			return;
+
+		freeList.push_back(handle.index);
+		--allocatedCount;
+
+		handle = {};
+	}
+
 	void DescriptorHeap::Reset() noexcept
 	{
 		heap.Reset();
