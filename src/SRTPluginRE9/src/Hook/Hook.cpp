@@ -468,7 +468,15 @@ namespace SRTPluginRE9::Hook
 		ID3D12Device *device;
 		ID3D12Device *cachedDevice = (ID3D12Device *) (*g_dx12HookState.device.GetAddressOf());
 		assert(!FAILED(pSwapChain->GetDevice(IID_PPV_ARGS(&device))));
+
+		// NOTE(@j): This line catches invalidation of the device object
+		//  which may occur through certain edge cases on some drivers. 
+		// If this assert is ever caught we might need to handle things accordingly.
+#if _DEBUG
 		assert(device == cachedDevice);
+#else
+		(void)(cachedDevice);
+#endif
 
 		ImGui_ImplDX12_InvalidateDeviceObjects();
 
@@ -494,10 +502,11 @@ namespace SRTPluginRE9::Hook
 		}
 
 		// NOTE(@j): 
-		// We must recreate RTV descriptors after every ResizeBuffers call.
+		// We must recreate RTV descriptors on resize.
 		// Previously RTV descriptor heap kept being allocated from and was never reset
-		// while using a linear allocator which caused dereferences to invalid descriptors
-		// to occur in the graphics driver & descriptor exhaustion over time (memory leak!).
+		// while using a linear allocator, producing invalid descriptor handles which 
+		// caused dereferences to invalid descriptors in the graphics driver and 
+		// descriptor exhaustion over time (memory leak!).
 		//
 		// It's really important to fully reset and reinitialize the RTV heap here, 
 		// then allocate one RTV descriptor per back buffer as usual.
@@ -509,7 +518,8 @@ namespace SRTPluginRE9::Hook
 		logger->LogMessage("hkResizeBuffers() - Reallocating RTV ({}) Heaps\n", rtvCapacity);
 		auto rtvResult = rtv.Init(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, rtvCapacity, false);
 		if (!rtvResult) {
-			logger->LogMessage("hkResizeBuffers() - Failed recreating RTV descriptor heaps with error {:#x}\n", hResult);
+			auto error = rtvResult.error();
+			logger->LogMessage("hkResizeBuffers() - Failed recreating RTV descriptor heaps with error: {}\n", error);
 			hResult = E_FAIL;
 			return hResult;
 		}
