@@ -465,7 +465,7 @@ namespace SRTPluginRE9::Hook
 		if (!g_dx12HookState.initialized)
 			return oResizeBuffers(pSwapChain, BufferCount, Width, Height, NewFormat, Flags);
 
-		ID3D12Device *device;
+		ID3D12Device *device = 0;
 		ID3D12Device *cachedDevice = (ID3D12Device *) (*g_dx12HookState.device.GetAddressOf());
 		assert(!FAILED(pSwapChain->GetDevice(IID_PPV_ARGS(&device))));
 
