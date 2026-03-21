@@ -531,7 +531,7 @@ namespace SRTPluginRE9::Hook
 
 			if (FAILED(hResult = pSwapChain->GetBuffer(i, IID_PPV_ARGS(&frameContext.renderTarget))))
 			{
-				logger->LogMessage("hkResizeBuffers() - GetBuffer failed: {:#x}\n", static_cast<uint32_t>(hResult));
+				logger->LogMessage("initImGui() - GetBuffer failed: {:#x}\n", static_cast<uint32_t>(hResult));
 
 				return false;
 			}
