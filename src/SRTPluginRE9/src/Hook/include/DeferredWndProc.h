@@ -1,6 +1,14 @@
 #ifndef SRTPLUGINRE9_DEFERREDWNDPROC_H
 #define SRTPLUGINRE9_DEFERREDWNDPROC_H
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #include <Windows.h>
 #include <mutex>
 #include <vector>

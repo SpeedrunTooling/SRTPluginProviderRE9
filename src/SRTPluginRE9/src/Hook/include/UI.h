@@ -1,6 +1,10 @@
 #ifndef SRTPLUGINRE9_UI_H
 #define SRTPLUGINRE9_UI_H
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif

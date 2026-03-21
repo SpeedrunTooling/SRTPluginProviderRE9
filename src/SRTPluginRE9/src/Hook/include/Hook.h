@@ -1,6 +1,14 @@
 #ifndef SRTPLUGINRE9_HOOK_H
 #define SRTPLUGINRE9_HOOK_H
 
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
 #define DIRECTINPUT_VERSION 0x0800
 
 #include "DescriptorHeapAllocator.h"
