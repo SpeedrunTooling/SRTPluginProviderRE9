@@ -466,17 +466,13 @@ namespace SRTPluginRE9::Hook
 			return oResizeBuffers(pSwapChain, BufferCount, Width, Height, NewFormat, Flags);
 
 		ID3D12Device *device = 0;
-		ID3D12Device *cachedDevice = (ID3D12Device *) (*g_dx12HookState.device.GetAddressOf());
-		assert(!FAILED(pSwapChain->GetDevice(IID_PPV_ARGS(&device))));
+		ID3D12Device *cachedDevice = (ID3D12Device *)(*g_dx12HookState.device.GetAddressOf());
+		SRT_ASSERT(!FAILED(pSwapChain->GetDevice(IID_PPV_ARGS(&device))));
 
 		// NOTE(@j): This line catches invalidation of the device object
-		//  which may occur through certain edge cases on some drivers. 
+		//  which may occur through certain edge cases on some drivers.
 		// If this assert is ever caught we might need to handle things accordingly.
-#if _DEBUG
-		assert(device == cachedDevice);
-#else
-		(void)(cachedDevice);
-#endif
+		SRT_ASSERTDEBUG(device == cachedDevice);
 
 		ImGui_ImplDX12_InvalidateDeviceObjects();
 
@@ -501,14 +497,14 @@ namespace SRTPluginRE9::Hook
 			return hResult;
 		}
 
-		// NOTE(@j): 
+		// NOTE(@j):
 		// We must recreate RTV descriptors on resize.
 		// Previously RTV descriptor heap kept being allocated from and was never reset
-		// while using a linear allocator, producing invalid descriptor handles which 
-		// caused dereferences to invalid descriptors in the graphics driver and 
+		// while using a linear allocator, producing invalid descriptor handles which
+		// caused dereferences to invalid descriptors in the graphics driver and
 		// descriptor exhaustion over time (memory leak!).
 		//
-		// It's really important to fully reset and reinitialize the RTV heap here, 
+		// It's really important to fully reset and reinitialize the RTV heap here,
 		// then allocate one RTV descriptor per back buffer as usual.
 		auto &rtv = g_dx12HookState.heaps.rtv;
 		g_dx12HookState.bufferCount = desc.BufferCount;
@@ -517,7 +513,8 @@ namespace SRTPluginRE9::Hook
 		UINT rtvCapacity = g_dx12HookState.bufferCount;
 		logger->LogMessage("hkResizeBuffers() - Reallocating RTV ({}) Heaps\n", rtvCapacity);
 		auto rtvResult = rtv.Init(device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, rtvCapacity, false);
-		if (!rtvResult) {
+		if (!rtvResult)
+		{
 			auto error = rtvResult.error();
 			logger->LogMessage("hkResizeBuffers() - Failed recreating RTV descriptor heaps with error: {}\n", error);
 			hResult = E_FAIL;
@@ -749,9 +746,9 @@ namespace SRTPluginRE9::Hook
 			                                       std::ranges::to<std::vector>();
 
 			constexpr auto compare = OrderByDescending([](const EnemyData &enemyData)
-			                                 { return enemyData.HP.CurrentHP < enemyData.HP.MaximumHP; })
-			                   .ThenByDescending([](const EnemyData &enemyData)
-			                                     { return enemyData.HP.MaximumHP; });
+			                                           { return enemyData.HP.CurrentHP < enemyData.HP.MaximumHP; })
+			                             .ThenByDescending([](const EnemyData &enemyData)
+			                                               { return enemyData.HP.MaximumHP; });
 			std::ranges::sort(localGameData.FilteredEnemiesBacking, compare);
 
 			localGameData.Data.FilteredEnemies = InteropArray{
