@@ -92,6 +92,11 @@ namespace SRTPluginRE9::Hook
 			opacity = opacityDisplay / 100.0f;
 	}
 
+	void STDMETHODCALLTYPE BarSizeSlider(const char *text, float &barSize, float &&minSize, float &&maxSize)
+	{
+		ImGui::SliderFloat(text, &barSize, minSize, maxSize, "%.0f");
+	}
+
 	void STDMETHODCALLTYPE UI::ToggleUI()
 	{
 		mainUIOpen = !mainUIOpen;
@@ -185,6 +190,14 @@ namespace SRTPluginRE9::Hook
 			}
 		}
 
+		ImGui::Checkbox("Show HP bars", &hpBarData.shouldShow);
+		if (hpBarData.shouldShow)
+		{
+			ImGui::SameLine();
+			ImGui::Checkbox("Show HP percent", &hpBarData.displayPercent);
+			BarSizeSlider("Width", hpBarData.width, 20.0f, 300.0f);
+			BarSizeSlider("Height", hpBarData.height, 2.0f, 30.0f);
+		}
 		ImGui::Checkbox("Hide full HP enemies", &hideFullHPEnemies);
 
 		ImGui::End();
@@ -412,6 +425,32 @@ namespace SRTPluginRE9::Hook
 					ImGui::Text("%s %" PRIi32 " / %" PRIi32, name_display.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 				}
 
+				if (hpBarData.shouldShow)
+				{
+					const auto hpPercent = enemyData.HP.MaximumHP > 0
+					                            ? static_cast<float>(enemyData.HP.CurrentHP) / static_cast<float>(enemyData.HP.MaximumHP)
+					                            : 0.0f;
+
+					// Fill color
+					ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.20f, 0.80f, 0.20f, 1.00f));
+
+					// Back color
+					ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.20f, 0.20f, 0.80f, 1.00f));
+
+					// Scale by the font scale factor so that the bars remain proportional to the text size
+					const auto width = hpBarData.width * g_SRTSettings.FontScalingFactor;
+					const auto height = hpBarData.height * g_SRTSettings.FontScalingFactor;
+
+					ImGui::ProgressBar(hpPercent, ImVec2(width, height), "");
+
+					ImGui::PopStyleColor(2);
+
+					if (hpBarData.displayPercent)
+					{
+						ImGui::SameLine();
+						ImGui::Text("%.1f%%", hpPercent * 100.0f);
+					}
+				}
 			}
 		}
 		ImGui::End();

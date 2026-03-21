@@ -24,6 +24,14 @@ namespace SRTPluginRE9::Hook
 		LowerRight = 3
 	};
 
+	struct HPBarData
+	{
+		bool shouldShow;
+		bool displayPercent;
+		float width;
+		float height;
+	};
+
 	class UI
 	{
 	public:
@@ -52,6 +60,7 @@ namespace SRTPluginRE9::Hook
 		bool overlayOpen = true;
 		bool mainUIOpen = true;
 		bool aboutUIOpen = false;
+		HPBarData hpBarData{.shouldShow = false, .displayPercent = false, .width = 100.0f, .height = 10.0f};
 
 		const char *logoPositions[4]{"Upper Left", "Upper Right", "Lower Left", "Lower Right"};
 		SRTPluginRE9::Hook::DescriptorHandle logoHandle;
