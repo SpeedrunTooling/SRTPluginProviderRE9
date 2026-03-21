@@ -164,6 +164,8 @@ extern SRTSettings g_SRTSettings;
 #define SRT_ASSERTDEBUG(_EXPR) IM_ASSERT(_EXPR)
 #elifdef assert
 #define SRT_ASSERTDEBUG(_EXPR) assert(_EXPR)
+#else
+#define SRT_ASSERTDEBUG(_EXPR) ((void)(_EXPR))
 #endif
 #else
 #define SRT_ASSERTDEBUG(_EXPR) ((void)(_EXPR))
