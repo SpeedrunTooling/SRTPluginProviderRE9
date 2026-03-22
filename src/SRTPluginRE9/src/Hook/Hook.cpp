@@ -459,6 +459,30 @@ namespace SRTPluginRE9::Hook
 		return presentResult;
 	}
 
+	// This function fully flushes the GPU comamnd queue to ensure all previously submitted work is completed.
+	void WaitForPreviousFramesResources() {
+		if (!g_dx12HookState.fence || !g_dx12HookState.fenceEvent) return;
+		// TODO: Proper error handling here
+		
+		auto &CommandQueue = g_dx12HookState.commandQueue;
+		
+		g_dx12HookState.fenceValue++; // TODO: This should really be named lastSignaledFenceValue
+		const uint64_t fenceValue = g_dx12HookState.fenceValue;
+		if (FAILED(CommandQueue->Signal(g_dx12HookState.fence.Get(), fenceValue)))
+			return;
+
+		HRESULT hr = S_OK;
+		auto CompletionValue = g_dx12HookState.fence->GetCompletedValue();
+		if (CompletionValue < fenceValue) {
+			if (FAILED(hr = g_dx12HookState.fence->SetEventOnCompletion(fenceValue, g_dx12HookState.fenceEvent))) {
+				logger->LogMessage("WaitForPreviousFramesResources(): SetEventOnCompletion on g_dx12HookState.fence failed with {}\n", hr);
+				return;
+			}
+
+			WaitForSingleObjectEx(g_dx12HookState.fenceEvent, INFINITE, 0);
+		}
+	}
+
 	HRESULT STDMETHODCALLTYPE hkResizeBuffers(IDXGISwapChain *pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT Flags)
 	{
 		HRESULT hResult = S_OK;
@@ -468,16 +492,18 @@ namespace SRTPluginRE9::Hook
 
 		ID3D12Device *device = 0;
 		ID3D12Device *cachedDevice = (ID3D12Device *) (*g_dx12HookState.device.GetAddressOf());
-		assert(!FAILED(pSwapChain->GetDevice(IID_PPV_ARGS(&device))));
+		SRT_Assert(!FAILED(pSwapChain->GetDevice(IID_PPV_ARGS(&device))));
 
 		// NOTE(@j): This line catches invalidation of the device object
 		//  which may occur through certain edge cases on some drivers. 
 		// If this assert is ever caught we might need to handle things accordingly.
 #if _DEBUG
-		assert(device == cachedDevice);
+		SRT_Assert(device == cachedDevice);
 #else
 		(void)(cachedDevice);
 #endif
+
+		WaitForPreviousFramesResources();
 
 		ImGui_ImplDX12_InvalidateDeviceObjects();
 
