@@ -35,13 +35,25 @@ namespace SRTPluginRE9::Hook
 		if (FAILED(hr))
 			return std::unexpected(std::format("CreateDXGIFactory1 failed: {:#x}", static_cast<uint32_t>(hr)));
 
+		UINT AdapterIndex = 0; 
 		Microsoft::WRL::ComPtr<IDXGIAdapter1> adapter;
-		hr = factory->EnumAdapters1(0, &adapter);
-		if (FAILED(hr))
-			return std::unexpected(std::format("EnumAdapters1 failed: {:#x}", static_cast<uint32_t>(hr)));
-
 		Microsoft::WRL::ComPtr<ID3D12Device> tmpDevice;
-		hr = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&tmpDevice));
+		for (; DXGI_ERROR_NOT_FOUND != factory->EnumAdapters1(AdapterIndex, &adapter); ++AdapterIndex) {
+			DXGI_ADAPTER_DESC1 Desc;
+			if (adapter->GetDesc1(&Desc) < 0) {
+				continue;
+			}
+
+			if (Desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) {
+				continue;
+			}
+
+			hr = D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&tmpDevice));
+			if (hr >= 0) {
+				break;
+			}
+		}
+
 		if (FAILED(hr))
 			return std::unexpected(std::format("D3D12CreateDevice failed: {:#x}", static_cast<uint32_t>(hr)));
 
