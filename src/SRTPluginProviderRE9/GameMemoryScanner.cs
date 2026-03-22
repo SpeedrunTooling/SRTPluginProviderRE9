@@ -131,11 +131,19 @@ internal class GameMemoryScanner : IDisposable
         // Player HP
         gameMemoryValues.PlayerContext = new PlayerContext
         {
+            ID = PointerPlayerContext.Deref<Guid>(0x38),
             HP = new HPData
             {
                 CurrentHP = DerefChain<int>(PointerPlayerContext.Address, 0x70, 0x10, 0x28),
                 CurrentMaxHP = DerefChain<int>(PointerPlayerContext.Address, 0x70, 0x10, 0x30)
-            }
+            },
+            IsRespawn = PointerPlayerContext.DerefByte(0xEC) != 0,
+            IsSpawn = PointerPlayerContext.DerefByte(0xED) != 0,
+            StopByOutOfArea = PointerPlayerContext.DerefByte(0xEE) != 0,
+            IsSuspended = PointerPlayerContext.DerefByte(0xEF) != 0,
+            CutSceneInvalidated = PointerPlayerContext.DerefByte(0xF0) != 0,
+            Managed = PointerPlayerContext.DerefByte(0xF1) != 0,
+            ShowVitalSkipFrame = PointerPlayerContext.DerefByte(0xF2) != 0,
         };
 
         // Enemy HPs
@@ -143,12 +151,20 @@ internal class GameMemoryScanner : IDisposable
         {
             gameMemoryValues.EnemyContexts[i] = new EnemyContext
             {
+                ID = PointerEnemyContexts[i].Deref<Guid>(0x38),
                 KindID = PointerEnemyContexts[i].DerefUShort(0x40),
                 HP = new HPData
                 {
                     CurrentHP = DerefChain<int>(PointerEnemyContexts[i].Address, 0x70, 0x10, 0x28),
                     CurrentMaxHP = DerefChain<int>(PointerEnemyContexts[i].Address, 0x70, 0x10, 0x30)
-                }
+                },
+                IsRespawn = PointerEnemyContexts[i].DerefByte(0xEC) != 0,
+                IsSpawn = PointerEnemyContexts[i].DerefByte(0xED) != 0,
+                StopByOutOfArea = PointerEnemyContexts[i].DerefByte(0xEE) != 0,
+                IsSuspended = PointerEnemyContexts[i].DerefByte(0xEF) != 0,
+                CutSceneInvalidated = PointerEnemyContexts[i].DerefByte(0xF0) != 0,
+                Managed = PointerEnemyContexts[i].DerefByte(0xF1) != 0,
+                ShowVitalSkipFrame = PointerEnemyContexts[i].DerefByte(0xF2) != 0,
             };
         }
 
