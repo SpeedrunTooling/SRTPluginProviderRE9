@@ -25,12 +25,18 @@ struct SRTSettings
 
 	float OverlayOpacity = .2f;
 
+	uint32_t ShowCustomizationOptions = 0U; // false
 	int EnemiesShownLimit = 16;
 	uint32_t EnemiesHideFullHP = 1U;      // true
+	int32_t EnemiesFullHPTextColorIndex = 4; // white
+	int32_t EnemiesInjuredTextColorIndex = 1; // red
 	uint32_t EnemyHPBarsVisible = 0U;     // false
 	uint32_t EnemyHPBarsShowPercent = 0U; // false
 	float EnemyHPBarsWidth = 100.f;
 	float EnemyHPBarsHeight = 10.f;
+	int32_t EnemyHPBarForeColorIndex = 2; // green
+	int32_t EnemyHPBarBackColorIndex = 0; // blue
+	uint32_t DarkenBarColors = 0U; // false
 
 	float DPIScalingFactor = 0.f;
 	float FontScalingFactor = 0.f;

@@ -67,7 +67,13 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 		readSuccess = TryReadSetting(inputStringView, "OverlayOpacity=", g_SRTSettings.OverlayOpacity);
 
 	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "ShowCustomizationOptions=", g_SRTSettings.ShowCustomizationOptions);
+	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "EnemiesShownLimit=", g_SRTSettings.EnemiesShownLimit);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "EnemiesFullHPTextColorIndex=", g_SRTSettings.EnemiesFullHPTextColorIndex);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "EnemiesInjuredTextColorIndex=", g_SRTSettings.EnemiesInjuredTextColorIndex);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "EnemiesHideFullHP=", g_SRTSettings.EnemiesHideFullHP);
 	if (!readSuccess)
@@ -78,6 +84,12 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 		readSuccess = TryReadSetting(inputStringView, "EnemyHPBarsWidth=", g_SRTSettings.EnemyHPBarsWidth);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "EnemyHPBarsHeight=", g_SRTSettings.EnemyHPBarsHeight);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "EnemyHPBarForeColorIndex=", g_SRTSettings.EnemyHPBarForeColorIndex);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "EnemyHPBarBackColorIndex=", g_SRTSettings.EnemyHPBarBackColorIndex);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "DarkenBarColors=", g_SRTSettings.DarkenBarColors);
 
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "DPIScalingFactor=", g_SRTSettings.DPIScalingFactor);
@@ -101,12 +113,18 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 
 	out_buf->appendf("OverlayOpacity=%f\n", g_SRTSettings.OverlayOpacity);
 
+	out_buf->appendf("ShowCustomizationOptions=%d\n", g_SRTSettings.ShowCustomizationOptions);
 	out_buf->appendf("EnemiesShownLimit=%d\n", g_SRTSettings.EnemiesShownLimit);
+	out_buf->appendf("EnemiesFullHPTextColorIndex=%d\n", g_SRTSettings.EnemiesFullHPTextColorIndex);
+	out_buf->appendf("EnemiesInjuredTextColorIndex=%d\n", g_SRTSettings.EnemiesInjuredTextColorIndex);
 	out_buf->appendf("EnemiesHideFullHP=%d\n", g_SRTSettings.EnemiesHideFullHP);
 	out_buf->appendf("EnemyHPBarsVisible=%d\n", g_SRTSettings.EnemyHPBarsVisible);
 	out_buf->appendf("EnemyHPBarsShowPercent=%d\n", g_SRTSettings.EnemyHPBarsShowPercent);
 	out_buf->appendf("EnemyHPBarsWidth=%f\n", g_SRTSettings.EnemyHPBarsWidth);
 	out_buf->appendf("EnemyHPBarsHeight=%f\n", g_SRTSettings.EnemyHPBarsHeight);
+	out_buf->appendf("EnemyHPBarForeColorIndex=%d\n", g_SRTSettings.EnemyHPBarForeColorIndex);
+	out_buf->appendf("EnemyHPBarBackColorIndex=%d\n", g_SRTSettings.EnemyHPBarBackColorIndex);
+	out_buf->appendf("DarkenBarColors=%d\n", g_SRTSettings.DarkenBarColors);
 
 	out_buf->appendf("DPIScalingFactor=%f\n", g_SRTSettings.DPIScalingFactor);
 	out_buf->appendf("FontScalingFactor=%f\n", g_SRTSettings.FontScalingFactor);

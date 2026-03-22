@@ -28,6 +28,15 @@ namespace SRTPluginRE9::Hook
 		LowerRight = 3
 	};
 
+	enum class ColorPreset : int32_t
+	{
+		Blue = 0,
+		Red = 1,
+		Green = 2,
+		White = 3,
+		Gray = 4
+	};
+
 	class UI
 	{
 	public:
@@ -47,6 +56,8 @@ namespace SRTPluginRE9::Hook
 		void STDMETHODCALLTYPE DrawDebugLogger();
 		void STDMETHODCALLTYPE DrawDebugOverlay();
 		void STDMETHODCALLTYPE DrawLogoOverlay();
+		void STDMETHODCALLTYPE RenderHPBar(int32_t currentHP, int32_t maximumHP);
+		ImVec4 STDMETHODCALLTYPE ColorFromPreset(int32_t preset);
 
 		float horizontal;
 		float vertical;
@@ -58,6 +69,7 @@ namespace SRTPluginRE9::Hook
 		bool aboutUIOpen = false;
 
 		const char *logoPositions[4]{"Upper Left", "Upper Right", "Lower Left", "Lower Right"};
+		const char *colorPresets[5]{"Blue", "Red", "Green", "White", "Gray"};
 		SRTPluginRE9::Hook::DescriptorHandle logoHandle;
 		ID3D12Resource *logoTexture = nullptr;
 		int32_t logoWidth = 0;

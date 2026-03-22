@@ -190,15 +190,28 @@ namespace SRTPluginRE9::Hook
 			}
 		}
 
-		ImGui::Checkbox("Show HP bars", reinterpret_cast<bool *>(&g_SRTSettings.EnemyHPBarsVisible));
-		if (g_SRTSettings.EnemyHPBarsVisible)
+		ImGui::Checkbox("Show customization options", reinterpret_cast<bool *>(&g_SRTSettings.ShowCustomizationOptions));
+		if (g_SRTSettings.ShowCustomizationOptions)
 		{
-			ImGui::SameLine();
-			ImGui::Checkbox("Show HP percent", reinterpret_cast<bool *>(&g_SRTSettings.EnemyHPBarsShowPercent));
-			BarSizeSlider("Width", g_SRTSettings.EnemyHPBarsWidth, 20.0f, 300.0f);
-			BarSizeSlider("Height", g_SRTSettings.EnemyHPBarsHeight, 2.0f, 30.0f);
+			ImGui::Checkbox("Hide full HP enemies", reinterpret_cast<bool *>(&g_SRTSettings.EnemiesHideFullHP));
+			if (!g_SRTSettings.EnemiesHideFullHP)
+			{
+				ImGui::Combo("Full HP enemy text color", &g_SRTSettings.EnemiesFullHPTextColorIndex, colorPresets, IM_ARRAYSIZE(colorPresets));
+			}
+			ImGui::Combo("Injured enemy text color", &g_SRTSettings.EnemiesInjuredTextColorIndex, colorPresets, IM_ARRAYSIZE(colorPresets));
+
+			ImGui::Checkbox("Show HP bars", reinterpret_cast<bool *>(&g_SRTSettings.EnemyHPBarsVisible));
+			if (g_SRTSettings.EnemyHPBarsVisible)
+			{
+				ImGui::SameLine();
+				ImGui::Checkbox("Show HP percent", reinterpret_cast<bool *>(&g_SRTSettings.EnemyHPBarsShowPercent));
+				BarSizeSlider("Width", g_SRTSettings.EnemyHPBarsWidth, 20.0f, 300.0f);
+				BarSizeSlider("Height", g_SRTSettings.EnemyHPBarsHeight, 2.0f, 30.0f);
+				ImGui::Combo("Foreground color", &g_SRTSettings.EnemyHPBarForeColorIndex, colorPresets, IM_ARRAYSIZE(colorPresets));
+				ImGui::Combo("Background color", &g_SRTSettings.EnemyHPBarBackColorIndex, colorPresets, IM_ARRAYSIZE(colorPresets));
+				ImGui::Checkbox("Darken bar colors", reinterpret_cast<bool *>(&g_SRTSettings.DarkenBarColors));
+			}
 		}
-		ImGui::Checkbox("Hide full HP enemies", reinterpret_cast<bool *>(&g_SRTSettings.EnemiesHideFullHP));
 
 		ImGui::End();
 	}
@@ -418,38 +431,16 @@ namespace SRTPluginRE9::Hook
 				auto name_display = enemies.contains(enemyData.KindID) ? enemies.at(enemyData.KindID) : std::format("{}", enemyData.KindID);
 				if (enemyData.HP.CurrentHP != enemyData.HP.MaximumHP)
 				{
-					ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "%s %" PRIi32 " / %" PRIi32, name_display.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesInjuredTextColorIndex), "%s %" PRIi32 " / %" PRIi32, name_display.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 				}
 				else
 				{
-					ImGui::Text("%s %" PRIi32 " / %" PRIi32, name_display.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), "%s %" PRIi32 " / %" PRIi32, name_display.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 				}
 
 				if (g_SRTSettings.EnemyHPBarsVisible)
 				{
-					const auto hpPercent = enemyData.HP.MaximumHP > 0
-					                           ? static_cast<float>(enemyData.HP.CurrentHP) / static_cast<float>(enemyData.HP.MaximumHP)
-					                           : 0.0f;
-
-					// Fill color
-					ImGui::PushStyleColor(ImGuiCol_PlotHistogram, ImVec4(0.20f, 0.80f, 0.20f, 1.00f));
-
-					// Back color
-					ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.20f, 0.20f, 0.80f, 1.00f));
-
-					// Scale by the font scale factor so that the bars remain proportional to the text size
-					const auto width = g_SRTSettings.EnemyHPBarsWidth * g_SRTSettings.FontScalingFactor;
-					const auto height = g_SRTSettings.EnemyHPBarsHeight * g_SRTSettings.FontScalingFactor;
-
-					ImGui::ProgressBar(hpPercent, ImVec2(width, height), "");
-
-					ImGui::PopStyleColor(2);
-
-					if (g_SRTSettings.EnemyHPBarsShowPercent)
-					{
-						ImGui::SameLine();
-						ImGui::Text("%.1f%%", hpPercent * 100.0f);
-					}
+					RenderHPBar(enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 				}
 			}
 		}
@@ -486,6 +477,65 @@ namespace SRTPluginRE9::Hook
 			    ImVec4(0, 0, 0, 0));
 		}
 		ImGui::End();
+	}
+
+	void STDMETHODCALLTYPE UI::RenderHPBar(int32_t curHP, int32_t maxHP)
+	{
+		const auto hpPercent = maxHP > 0
+		                           ? static_cast<float>(curHP) / static_cast<float>(maxHP)
+		                           : 0.0f;
+
+		// Fill color
+		ImVec4 foreColor = ColorFromPreset(g_SRTSettings.EnemyHPBarForeColorIndex);
+		if (g_SRTSettings.DarkenBarColors)
+		{
+			foreColor.x *= 0.7f;
+			foreColor.y *= 0.7f;
+			foreColor.z *= 0.7f;
+		}
+		ImGui::PushStyleColor(ImGuiCol_PlotHistogram, foreColor);
+
+		// Back color
+		ImVec4 backColor = ColorFromPreset(g_SRTSettings.EnemyHPBarBackColorIndex);
+		if (g_SRTSettings.DarkenBarColors)
+		{
+			backColor.x *= 0.7f;
+			backColor.y *= 0.7f;
+			backColor.z *= 0.7f;
+		}
+		ImGui::PushStyleColor(ImGuiCol_FrameBg, backColor);
+
+		// Scale by the font scale factor so that the bars remain proportional to the text size
+		const auto width = g_SRTSettings.EnemyHPBarsWidth * g_SRTSettings.FontScalingFactor;
+		const auto height = g_SRTSettings.EnemyHPBarsHeight * g_SRTSettings.FontScalingFactor;
+
+		ImGui::ProgressBar(hpPercent, ImVec2(width, height), "");
+
+		ImGui::PopStyleColor(2);
+
+		if (g_SRTSettings.EnemyHPBarsShowPercent)
+		{
+			ImGui::SameLine();
+			ImGui::Text("%.1f%%", hpPercent * 100.0f);
+		}
+	}
+
+	ImVec4 STDMETHODCALLTYPE UI::ColorFromPreset(int32_t preset)
+	{
+		switch (static_cast<ColorPreset>(preset))
+		{
+			case ColorPreset::Blue:
+				return ImVec4(0.2f, 0.2f, 0.8f, 1.0f);
+			case ColorPreset::Red:
+				return ImVec4(0.8f, 0.2f, 0.2f, 1.0f);
+			case ColorPreset::Green:
+				return ImVec4(0.2f, 0.8f, 0.2f, 1.0f);
+			case ColorPreset::Gray:
+				return ImVec4(0.4f, 0.4f, 0.4f, 1.0f);
+		}
+
+		// Return white as default
+		return ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
 	void STDMETHODCALLTYPE UI::GameWindowResized()
