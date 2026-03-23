@@ -2,9 +2,9 @@
 
 #include <format>
 
-namespace SRTPluginRE9::Hook
+namespace SRTPluginRE9::DX12Hook
 {
-	auto DescriptorHeap::Init(
+	auto DX12DescriptorHeap::Init(
 	    ID3D12Device *device,
 	    D3D12_DESCRIPTOR_HEAP_TYPE type,
 	    uint32_t totalCapacity,
@@ -42,7 +42,7 @@ namespace SRTPluginRE9::Hook
 		return {};
 	}
 
-	DescriptorHandle DescriptorHeap::Allocate() noexcept
+	DX12DescriptorHandle DX12DescriptorHeap::Allocate() noexcept
 	{
 		uint32_t index = UINT32_MAX;
 
@@ -62,14 +62,14 @@ namespace SRTPluginRE9::Hook
 
 		++allocatedCount;
 
-		DescriptorHandle handle;
+		DX12DescriptorHandle handle;
 		handle.index = index;
 		handle.cpu.ptr = cpuStart.ptr + static_cast<SIZE_T>(index) * descriptorSize;
 		handle.gpu.ptr = gpuStart.ptr + static_cast<UINT64>(index) * descriptorSize;
 		return handle;
 	}
 
-	void DescriptorHeap::Free(DescriptorHandle &handle) noexcept
+	void DX12DescriptorHeap::Free(DX12DescriptorHandle &handle) noexcept
 	{
 		if (!handle.IsValid() || handle.index >= capacity)
 			return;
@@ -80,9 +80,9 @@ namespace SRTPluginRE9::Hook
 		handle = {};
 	}
 
-	void DescriptorHeap::Free(SIZE_T cpuPtr, UINT64 gpuPtr) noexcept
+	void DX12DescriptorHeap::Free(SIZE_T cpuPtr, UINT64 gpuPtr) noexcept
 	{
-		DescriptorHandle handle{
+		DX12DescriptorHandle handle{
 		    .cpu = cpuPtr,
 		    .gpu = gpuPtr,
 		    .index = static_cast<uint32_t>(gpuPtr - gpuStart.ptr) / descriptorSize // Derive index from a start pointer, current pointer, and size.
@@ -97,7 +97,7 @@ namespace SRTPluginRE9::Hook
 		handle = {};
 	}
 
-	void DescriptorHeap::Reset() noexcept
+	void DX12DescriptorHeap::Reset() noexcept
 	{
 		heap.Reset();
 		cpuStart = {};
@@ -109,7 +109,7 @@ namespace SRTPluginRE9::Hook
 		freeList.clear();
 	}
 
-	auto DescriptorHeaps::Init(
+	auto DX12DescriptorHeaps::Init(
 	    ID3D12Device *device,
 	    uint32_t rtvCapacity,
 	    uint32_t srvCapacity) -> std::expected<void, std::string>
@@ -125,7 +125,7 @@ namespace SRTPluginRE9::Hook
 		return {};
 	}
 
-	void DescriptorHeaps::Reset() noexcept
+	void DX12DescriptorHeaps::Reset() noexcept
 	{
 		rtv.Reset();
 		srv.Reset();

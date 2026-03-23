@@ -78,7 +78,7 @@ struct DX12HookState
 	// Device objects we create for our overlay
 	Microsoft::WRL::ComPtr<ID3D12Device> device;
 	ID3D12CommandQueue *commandQueue = nullptr;
-	SRTPluginRE9::Hook::DescriptorHeaps heaps;
+	SRTPluginRE9::DX12Hook::DX12DescriptorHeaps heaps;
 	Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList;
 	Microsoft::WRL::ComPtr<ID3D12Fence> fence;
 	HANDLE fenceEvent = nullptr;

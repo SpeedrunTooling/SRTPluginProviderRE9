@@ -1,12 +1,43 @@
 #ifndef SRTPLUGINRE9_DX12HOOK_H
 #define SRTPLUGINRE9_DX12HOOK_H
 
+#include "DescriptorHeapAllocator.h"
 #include <d3d12.h>
 #include <dxgi.h>
 #include <dxgi1_4.h>
+#include <expected>
+#include <string>
+#include <vector>
+#include <wrl/client.h>
 
 namespace SRTPluginRE9::DX12Hook
 {
+	struct FrameContext
+	{
+		Microsoft::WRL::ComPtr<ID3D12CommandAllocator> commandAllocator;
+		Microsoft::WRL::ComPtr<ID3D12Resource> renderTarget;
+		D3D12_CPU_DESCRIPTOR_HANDLE rtvHandle{};
+		uint64_t fenceValue = 0;
+	};
+
+	struct HookState
+	{
+		// Device objects we create for our overlay
+		Microsoft::WRL::ComPtr<ID3D12Device> device;
+		ID3D12CommandQueue *commandQueue = nullptr;
+		DX12DescriptorHeaps heaps;
+		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList;
+		Microsoft::WRL::ComPtr<ID3D12Fence> fence;
+		HANDLE fenceEvent = nullptr;
+		uint64_t fenceValue = 0;
+
+		std::vector<FrameContext> frameContexts;
+		UINT bufferCount = 0;
+		HWND gameWindow = nullptr;
+		WNDPROC origWndProc = nullptr;
+		bool initialized = false;
+	};
+
 	/// @brief A hook class wrapping DX12 resources.
 	class DX12Hook
 	{
@@ -30,6 +61,9 @@ namespace SRTPluginRE9::DX12Hook
 			void *executeCommandLists;
 		};
 
+		DX12VTableAddresses vtableAddresses{};
+		HookState hookState{};
+
 	public:
 		// Deleted methods (only allow default ctor/dtor, move ctor, and move assignment)
 		// DX12Hook(void) = delete;                        // default ctor (1)
@@ -43,11 +77,17 @@ namespace SRTPluginRE9::DX12Hook
 		/// @return The singleton instance of this class.
 		static DX12Hook &GetInstance();
 
-		/// @brief Attach hooks and create resources.
-		/// @return The last HRESULT operation.
-		HRESULT STDMETHODCALLTYPE Initialize();
+		/// @brief Gets the current hook state structure.
+		/// @return The current hook state structure.
+		const HookState &GetHookState();
 
-		/// @brief Detach hooks and release resources.
+		/// @brief Create resources.
+		/// @param 1 The DXGI SwapChain v3 pointer.
+		/// @param 2 The WndProc function pointer to hook calls into.
+		/// @return The last HRESULT operation.
+		HRESULT STDMETHODCALLTYPE Initialize(IDXGISwapChain3 *, LONG_PTR);
+
+		/// @brief Release resources.
 		/// @return The last HRESULT operation.
 		HRESULT STDMETHODCALLTYPE Release();
 	};

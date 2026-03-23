@@ -8,9 +8,9 @@
 #include <vector>
 #include <wrl/client.h>
 
-namespace SRTPluginRE9::Hook
+namespace SRTPluginRE9::DX12Hook
 {
-	struct DescriptorHandle
+	struct DX12DescriptorHandle
 	{
 		D3D12_CPU_DESCRIPTOR_HANDLE cpu{};
 		D3D12_GPU_DESCRIPTOR_HANDLE gpu{};
@@ -19,14 +19,14 @@ namespace SRTPluginRE9::Hook
 		[[nodiscard]] bool IsValid() const noexcept { return index != UINT32_MAX; }
 	};
 
-	class DescriptorHeap
+	class DX12DescriptorHeap
 	{
 	public:
-		DescriptorHeap() = default;
-		DescriptorHeap(const DescriptorHeap &) = delete;
-		DescriptorHeap &operator=(const DescriptorHeap &) = delete;
-		DescriptorHeap(DescriptorHeap &&) = default;
-		DescriptorHeap &operator=(DescriptorHeap &&) = default;
+		DX12DescriptorHeap() = default;
+		DX12DescriptorHeap(const DX12DescriptorHeap &) = delete;
+		DX12DescriptorHeap &operator=(const DX12DescriptorHeap &) = delete;
+		DX12DescriptorHeap(DX12DescriptorHeap &&) = default;
+		DX12DescriptorHeap &operator=(DX12DescriptorHeap &&) = default;
 
 		[[nodiscard]] auto Init(
 		    ID3D12Device *device,
@@ -34,9 +34,9 @@ namespace SRTPluginRE9::Hook
 		    uint32_t totalCapacity,
 		    bool shaderVisible) -> std::expected<void, std::string>;
 
-		[[nodiscard]] DescriptorHandle Allocate() noexcept;
+		[[nodiscard]] DX12DescriptorHandle Allocate() noexcept;
 
-		void Free(DescriptorHandle &handle) noexcept;
+		void Free(DX12DescriptorHandle &handle) noexcept;
 		void Free(SIZE_T cpuPtr, UINT64 gpuPtr) noexcept;
 
 		[[nodiscard]] ID3D12DescriptorHeap *GetHeap() const noexcept { return heap.Get(); }
@@ -58,10 +58,10 @@ namespace SRTPluginRE9::Hook
 		std::vector<uint32_t> freeList;
 	};
 
-	struct DescriptorHeaps
+	struct DX12DescriptorHeaps
 	{
-		DescriptorHeap rtv;
-		DescriptorHeap srv;
+		DX12DescriptorHeap rtv;
+		DX12DescriptorHeap srv;
 
 		[[nodiscard]] auto Init(
 		    ID3D12Device *device,
