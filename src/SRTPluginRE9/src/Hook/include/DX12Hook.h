@@ -23,7 +23,7 @@ namespace SRTPluginRE9::DX12Hook
 	struct HookState
 	{
 		// Device objects we create for our overlay
-		Microsoft::WRL::ComPtr<ID3D12Device> device;
+		ID3D12Device *device = nullptr;
 		ID3D12CommandQueue *commandQueue = nullptr;
 		DX12DescriptorHeaps heaps;
 		Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> commandList;
@@ -36,6 +36,12 @@ namespace SRTPluginRE9::DX12Hook
 		HWND gameWindow = nullptr;
 		WNDPROC origWndProc = nullptr;
 		bool initialized = false;
+
+		// Logo texture
+		DX12DescriptorHandle logoHandle;
+		ID3D12Resource *logoTexture = nullptr;
+		int32_t logoWidth = 0;
+		int32_t logoHeight = 0;
 	};
 
 	/// @brief A hook class wrapping DX12 resources.

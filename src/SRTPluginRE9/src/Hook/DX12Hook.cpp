@@ -1,5 +1,7 @@
 #include "DX12Hook.h"
 #include "Globals.h"
+#include "Logo.h"
+#include "Render.h"
 #include <MinHook.h>
 
 namespace SRTPluginRE9::DX12Hook
@@ -146,7 +148,7 @@ namespace SRTPluginRE9::DX12Hook
 		if (FAILED(hResult = pSwapChain->GetDevice(IID_PPV_ARGS(&hookState.device))))
 		{
 			logger->LogMessage("DX12Hook::Initialize() - GetDevice failed: {:#x}\n", static_cast<uint32_t>(hResult));
-			return false;
+			return hResult;
 		}
 
 		logger->LogMessage("DX12Hook::Initialize() - Using command queue: {:p}\n",
@@ -168,14 +170,14 @@ namespace SRTPluginRE9::DX12Hook
 		UINT srvCapacity = 64;
 		logger->LogMessage("DX12Hook::Initialize() - Allocating RTV ({}) and CBV, SRV, UAV ({}) Heaps\n", rtvCapacity, srvCapacity);
 
-		auto heapResult = hookState.heaps.Init(hookState.device.Get(),
+		auto heapResult = hookState.heaps.Init(hookState.device,
 		                                       rtvCapacity,
 		                                       srvCapacity);
 		if (!heapResult)
 		{
 			logger->LogMessage("DX12Hook::Initialize() - Heap init failed: {}\n", heapResult.error());
 
-			return false;
+			return E_FAIL;
 		}
 
 		for (UINT i = 0; i < hookState.bufferCount; ++i)
@@ -188,7 +190,7 @@ namespace SRTPluginRE9::DX12Hook
 			{
 				logger->LogMessage("DX12Hook::Initialize() - GetBuffer failed: {:#x}\n", static_cast<uint32_t>(hResult));
 
-				return false;
+				return hResult;
 			}
 
 			D3D12_RENDER_TARGET_VIEW_DESC rtvDesc{
@@ -201,7 +203,7 @@ namespace SRTPluginRE9::DX12Hook
 			{
 				logger->LogMessage("DX12Hook::Initialize() - CreateCommandAllocator failed: {:#x}\n", static_cast<uint32_t>(hResult));
 
-				return false;
+				return hResult;
 			}
 		}
 
@@ -209,7 +211,7 @@ namespace SRTPluginRE9::DX12Hook
 		{
 			logger->LogMessage("DX12Hook::Initialize() - CreateCommandList failed: {:#x}\n", static_cast<uint32_t>(hResult));
 
-			return false;
+			return hResult;
 		}
 		hookState.commandList->Close();
 
@@ -217,16 +219,36 @@ namespace SRTPluginRE9::DX12Hook
 		{
 			logger->LogMessage("DX12Hook::Initialize() - CreateFence failed: {:#x}\n", static_cast<uint32_t>(hResult));
 
-			return false;
+			return hResult;
 		}
 		hookState.fenceEvent = CreateEventW(nullptr, FALSE, FALSE, nullptr);
+
+		// Load logo texture
+		logger->LogMessage("DX12Hook::Initialize() - Allocating on SRV heap for logo.\n");
+		hookState.logoHandle = hookState.heaps.srv.Allocate();
+		hookState.logoWidth = g_srtLogo_width;
+		hookState.logoHeight = g_srtLogo_height;
+		logger->LogMessage("DX12Hook::Initialize() - Allocated handle {:p} on SRV heap.\n", reinterpret_cast<void *>(hookState.logoHandle.cpu.ptr));
+
+		auto logoLoaded = LoadTextureFromMemory(
+		    g_srtLogo.data(),
+		    hookState.logoWidth,
+		    hookState.logoHeight,
+		    hookState.device,
+		    hookState.logoHandle.cpu,
+		    &hookState.logoTexture);
+		if (!logoLoaded)
+		{
+			logger->LogMessage("DX12Hook::Initialize() - LoadTextureFromMemory failed.\n");
+			return E_FAIL;
+		}
 
 		hookState.origWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(hookState.gameWindow, GWLP_WNDPROC, hkWndProc));
 
 		hookState.initialized = true;
 		logger->LogMessage("DX12Hook::Initialize() - completed successfully.\n");
 
-		return true;
+		return S_OK;
 	}
 
 	HRESULT STDMETHODCALLTYPE DX12Hook::Release() // Detach hooks and release resources.
@@ -249,6 +271,8 @@ namespace SRTPluginRE9::DX12Hook
 				WaitForSingleObject(hookState.fenceEvent, 5000); // 5s timeout
 			}
 		}
+
+		DestroyTexture(&hookState.logoTexture);
 
 		hookState.commandList.Reset();
 		for (auto &frameContext : hookState.frameContexts)
