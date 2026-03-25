@@ -1,6 +1,6 @@
 #include "Logger.h"
 
-#include <print>
+#include <cstdio>
 
 namespace SRTPluginRE9::Logger
 {
@@ -11,10 +11,9 @@ namespace SRTPluginRE9::Logger
 
 	void Logger::LogMessage(const std::string_view message)
 	{
-		std::print("{:s}", message);
 		if (out)
 		{
-			std::print(out, "{:s}", message);
+			std::fwrite(message.data(), 1, message.size(), out);
 			std::fflush(out);
 		}
 		LogMessageUI("%s", message.data());
@@ -29,7 +28,6 @@ namespace SRTPluginRE9::Logger
 		                                       location.file_name(),
 		                                       location.line(),
 		                                       location.column());
-		puts(format.c_str());
 		if (out)
 		{
 			fputs(format.c_str(), out);

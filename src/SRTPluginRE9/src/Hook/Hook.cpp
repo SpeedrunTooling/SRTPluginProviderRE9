@@ -180,13 +180,41 @@ namespace SRTPluginRE9::Hook
 		return hr;
 	}
 
-	static bool initImGuiOverlay(IDXGISwapChain3 *pSwapChain)
+	static bool initImGuiD3D12Backend(IDXGISwapChain3 *pSwapChain)
 	{
 		auto &hookState = DX12Hook::DX12Hook::GetInstance().GetHookState();
 
 		DXGI_SWAP_CHAIN_DESC desc{};
 		pSwapChain->GetDesc(&desc);
 		auto backBufferFormat = desc.BufferDesc.Format;
+
+		ImGui_ImplDX12_InitInfo init_info = {};
+		init_info.Device = hookState.device;
+		init_info.CommandQueue = hookState.commandQueue;
+		init_info.NumFramesInFlight = static_cast<int>(hookState.bufferCount);
+		init_info.RTVFormat = backBufferFormat;
+		init_info.DSVFormat = DXGI_FORMAT_UNKNOWN;
+		init_info.SrvDescriptorHeap = hookState.heaps.srv.GetHeap();
+		init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo *, D3D12_CPU_DESCRIPTOR_HANDLE *out_cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE *out_gpu_handle)
+		{
+			auto &hs = DX12Hook::DX12Hook::GetInstance().GetHookStateMut();
+			auto allocHandles = hs.heaps.srv.Allocate();
+			*out_cpu_handle = allocHandles.cpu;
+			*out_gpu_handle = allocHandles.gpu;
+		};
+		init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo *, D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle)
+		{
+			auto &hs = DX12Hook::DX12Hook::GetInstance().GetHookStateMut();
+			hs.heaps.srv.Free(cpu_handle.ptr, gpu_handle.ptr);
+		};
+		ImGui_ImplDX12_Init(&init_info);
+
+		return true;
+	}
+
+	static bool initImGuiOverlay(IDXGISwapChain3 *pSwapChain)
+	{
+		auto &hookState = DX12Hook::DX12Hook::GetInstance().GetHookState();
 
 		ImGui_ImplWin32_EnableDpiAwareness();
 
@@ -210,28 +238,8 @@ namespace SRTPluginRE9::Hook
 
 		ImGui_ImplWin32_Init(hookState.gameWindow);
 
-		ImGui_ImplDX12_InitInfo init_info = {};
-		init_info.Device = hookState.device;
-		init_info.CommandQueue = hookState.commandQueue;
-		init_info.NumFramesInFlight = static_cast<int>(hookState.bufferCount);
-		init_info.RTVFormat = backBufferFormat;
-		init_info.DSVFormat = DXGI_FORMAT_UNKNOWN;
-		// Allocating SRV descriptors (for textures) is up to the application, so we provide callbacks.
-		// (current version of the backend will only allocate one descriptor, future versions will need to allocate more)
-		init_info.SrvDescriptorHeap = hookState.heaps.srv.GetHeap();
-		init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo *, D3D12_CPU_DESCRIPTOR_HANDLE *out_cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE *out_gpu_handle)
-		{
-			auto &hs = DX12Hook::DX12Hook::GetInstance().GetHookStateMut();
-			auto allocHandles = hs.heaps.srv.Allocate();
-			*out_cpu_handle = allocHandles.cpu;
-			*out_gpu_handle = allocHandles.gpu;
-		};
-		init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo *, D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle, D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle)
-		{
-			auto &hs = DX12Hook::DX12Hook::GetInstance().GetHookStateMut();
-			hs.heaps.srv.Free(cpu_handle.ptr, gpu_handle.ptr);
-		};
-		ImGui_ImplDX12_Init(&init_info);
+		if (!initImGuiD3D12Backend(pSwapChain))
+			return false;
 
 		// Create the SRT UI class which will allocate a texture on the heap, which should happen here.
 		srtUI = std::make_unique<SRTPluginRE9::Hook::UI>();
@@ -277,10 +285,27 @@ namespace SRTPluginRE9::Hook
 				return oPresent(pSwapChain, SyncInterval, Flags);
 			}
 
-			if (!initImGuiOverlay(pSwapChain))
+			// Detect reinit-after-resize vs first-time init.
+			// If ImGui context already exists, only reinit the D3D12 backend + UI.
+			if (ImGui::GetCurrentContext() != nullptr)
 			{
-				hookState.commandQueue = nullptr; // reset on failure
-				return oPresent(pSwapChain, SyncInterval, Flags);
+				logger->LogMessage("hkPresent() - Reinitializing after resize.\n");
+				if (!initImGuiD3D12Backend(pSwapChain))
+				{
+					hookState.commandQueue = nullptr;
+					return oPresent(pSwapChain, SyncInterval, Flags);
+				}
+				srtUI = std::make_unique<SRTPluginRE9::Hook::UI>();
+				logger->SetUIPtr(srtUI.get());
+				srtUI->GameWindowResized();
+			}
+			else
+			{
+				if (!initImGuiOverlay(pSwapChain))
+				{
+					hookState.commandQueue = nullptr;
+					return oPresent(pSwapChain, SyncInterval, Flags);
+				}
 			}
 
 			g_skipRenderingOnInit.store(true);
@@ -394,7 +419,6 @@ namespace SRTPluginRE9::Hook
 
 	HRESULT STDMETHODCALLTYPE hkResizeBuffers(IDXGISwapChain *pSwapChain, UINT BufferCount, UINT Width, UINT Height, DXGI_FORMAT NewFormat, UINT Flags)
 	{
-		HRESULT hResult = S_OK;
 		auto &dx12 = DX12Hook::DX12Hook::GetInstance();
 		auto oResizeBuffers = dx12.GetOriginalResizeBuffers();
 		auto &hookState = dx12.GetHookStateMut();
@@ -402,93 +426,78 @@ namespace SRTPluginRE9::Hook
 		if (!hookState.initialized)
 			return oResizeBuffers(pSwapChain, BufferCount, Width, Height, NewFormat, Flags);
 
-		logger->LogMessage("hkResizeBuffers() - Started.\n");
+		logger->LogMessage("hkResizeBuffers() - Started (full teardown).\n");
 
-		logger->LogMessage("hkResizeBuffers() - Resetting our ID3D12Device before calling GetDevice on the new swapchain pointer...\n");
-		hookState.device = nullptr; // Reset our previously created device before getting a new instance.
-		if (FAILED(pSwapChain->GetDevice(__uuidof(ID3D12Device), reinterpret_cast<void **>(&hookState.device))))
+		// === GPU DRAIN ===
+		// Wait for all in-flight GPU work before releasing any resources.
+		// Without this, ResizeBuffers can return E_ABORT because our render
+		// targets are still referenced by pending GPU commands.
+		if (hookState.fence && hookState.commandQueue)
 		{
-			logger->LogMessage("hkResizeBuffers() - GetDevice failed: {:#x}\n", static_cast<uint32_t>(hResult));
-			return hResult;
+			hookState.fenceValue++;
+			HRESULT signalHr = hookState.commandQueue->Signal(hookState.fence.Get(), hookState.fenceValue);
+			if (SUCCEEDED(signalHr) && hookState.fence->GetCompletedValue() < hookState.fenceValue)
+			{
+				hookState.fence->SetEventOnCompletion(hookState.fenceValue, hookState.fenceEvent);
+				WaitForSingleObject(hookState.fenceEvent, 5000);
+			}
 		}
-		else
-			logger->LogMessage("hkResizeBuffers() - GetDevice succeeded.\n");
+		logger->LogMessage("hkResizeBuffers() - GPU drain complete.\n");
 
-		logger->LogMessage("hkResizeBuffers() - Invalidating ImGui device objects...\n");
-		ImGui_ImplDX12_InvalidateDeviceObjects();
+		// === TEAR DOWN ALL OVERLAY D3D12 RESOURCES ===
+		// Shut down ImGui DX12 backend (keeps ImGui context + Win32 backend alive).
+		ImGui_ImplDX12_Shutdown();
 
-		// Release render targets before the resize
-		logger->LogMessage("hkResizeBuffers() - Resetting frame context render targets...\n");
-		for (auto &frameContext : hookState.frameContexts)
-			frameContext.renderTarget.Reset();
+		// Destroy SRT UI and logo texture (they hold D3D12 resource references).
+		logger->SetUIPtr(nullptr);
+		srtUI.reset();
+		if (hookState.logoTexture)
+			DestroyTexture(&hookState.logoTexture);
+		hookState.logoHandle = {};
 
-		if (FAILED(hResult = oResizeBuffers(pSwapChain, BufferCount, Width, Height, NewFormat, Flags)))
+		// Release all D3D12 overlay resources.
+		hookState.commandList.Reset();
+		for (auto &fc : hookState.frameContexts)
 		{
+			fc.commandAllocator.Reset();
+			fc.renderTarget.Reset();
+			fc.fenceValue = 0;
+		}
+		hookState.frameContexts.clear();
+		hookState.heaps.Reset();
+		hookState.fence.Reset();
+		if (hookState.fenceEvent)
+		{
+			CloseHandle(hookState.fenceEvent);
+			hookState.fenceEvent = nullptr;
+		}
+		hookState.fenceValue = 0;
+		hookState.bufferCount = 0;
+
+		// Release device/queue references (will be re-acquired on next init).
+		hookState.device = nullptr;
+		hookState.commandQueue = nullptr;
+		hookState.initialized = false;
+
+		logger->LogMessage("hkResizeBuffers() - Resources released, calling original.\n");
+
+		// === CALL ORIGINAL ===
+		HRESULT hResult = oResizeBuffers(pSwapChain, BufferCount, Width, Height, NewFormat, Flags);
+		if (FAILED(hResult))
 			logger->LogMessage("hkResizeBuffers() - oResizeBuffers failed: {:#x}\n", static_cast<uint32_t>(hResult));
-			return hResult;
-		}
 		else
 			logger->LogMessage("hkResizeBuffers() - oResizeBuffers succeeded.\n");
 
-		DXGI_SWAP_CHAIN_DESC desc{};
-		if (FAILED(hResult = pSwapChain->GetDesc(&desc)))
+		// === FORCE REINIT ON NEXT PRESENT ===
+		// Clear the cached queue so hkExecuteCommandLists re-captures a fresh one.
 		{
-			logger->LogMessage("hkResizeBuffers() - GetDesc failed: {:#x}\n", static_cast<uint32_t>(hResult));
-			return hResult;
+			std::lock_guard lock(g_queueMutex);
+			g_lastSeenDirectQueue = nullptr;
 		}
-		else
-			logger->LogMessage("hkResizeBuffers() - GetDesc succeeded.\n");
+		g_firstRunPresent.store(true);
+		g_skipRenderingOnInit.store(true);
 
-		// NOTE(@j):
-		// We must recreate RTV descriptors on resize.
-		// Previously RTV descriptor heap kept being allocated from and was never reset
-		// while using a linear allocator, producing invalid descriptor handles which
-		// caused dereferences to invalid descriptors in the graphics driver and
-		// descriptor exhaustion over time (memory leak!).
-		//
-		// It's really important to fully reset and reinitialize the RTV heap here,
-		// then allocate one RTV descriptor per back buffer as usual.
-		auto &rtv = hookState.heaps.rtv;
-		hookState.bufferCount = desc.BufferCount;
-		rtv.Reset();
-
-		UINT rtvCapacity = hookState.bufferCount;
-		logger->LogMessage("hkResizeBuffers() - Reallocating RTV ({}) Heaps\n", rtvCapacity);
-		auto rtvResult = rtv.Init(hookState.device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, rtvCapacity, false);
-		if (!rtvResult)
-		{
-			auto error = rtvResult.error();
-			logger->LogMessage("hkResizeBuffers() - Failed recreating RTV descriptor heaps with error: {}\n", error);
-			hResult = E_FAIL;
-			return hResult;
-		}
-
-		// Recreate render targets
-		for (UINT i = 0; i < hookState.bufferCount; ++i)
-		{
-			auto &frameContext = hookState.frameContexts[i];
-
-			auto rtvHandle = hookState.heaps.rtv.Allocate();
-			frameContext.rtvHandle = rtvHandle.cpu;
-
-			if (FAILED(hResult = pSwapChain->GetBuffer(i, IID_PPV_ARGS(&frameContext.renderTarget))))
-			{
-				logger->LogMessage("hkResizeBuffers() - GetBuffer failed: {:#x}\n", static_cast<uint32_t>(hResult));
-				return false;
-			}
-			else
-				logger->LogMessage("hkResizeBuffers() - GetBuffer({}, ...) succeeded.\n", i);
-
-			hookState.device->CreateRenderTargetView(frameContext.renderTarget.Get(), 0, rtvHandle.cpu);
-		}
-
-		logger->LogMessage("hkResizeBuffers() - Creating ImGui device objects...\n");
-		ImGui_ImplDX12_CreateDeviceObjects();
-
-		logger->LogMessage("hkResizeBuffers() - Recalculating game window size and DPIs...\n");
-		srtUI->GameWindowResized();
-
-		logger->LogMessage("hkResizeBuffers() - Done.\n");
+		logger->LogMessage("hkResizeBuffers() - Done. Will reinitialize on next Present.\n");
 		return hResult;
 	}
 

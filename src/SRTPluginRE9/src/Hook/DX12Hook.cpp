@@ -292,7 +292,9 @@ namespace SRTPluginRE9::DX12Hook
 			return E_FAIL;
 		}
 
-		hookState.origWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(hookState.gameWindow, GWLP_WNDPROC, hkWndProc));
+		// Only hook WndProc if not already hooked (avoids recursive WndProc on reinit after resize).
+		if (!hookState.origWndProc)
+			hookState.origWndProc = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(hookState.gameWindow, GWLP_WNDPROC, hkWndProc));
 
 		hookState.initialized = true;
 		logger->LogMessage("DX12Hook::Initialize() - completed successfully.\n");
