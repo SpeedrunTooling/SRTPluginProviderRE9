@@ -243,16 +243,29 @@ jobs:
           }
           $zipFile.Dispose()
 
+      - name: Create additional version tags
+        run: |
+          git tag -f latest
+          git push origin latest --force
+
+          git tag -f v${{ needs.Setup.outputs.verMajor }}
+          git push origin v${{ needs.Setup.outputs.verMajor }} --force
+
+          git tag -f v${{ needs.Setup.outputs.verMajor }}.${{ needs.Setup.outputs.verMinor }}
+          git push origin v${{ needs.Setup.outputs.verMajor }}.${{ needs.Setup.outputs.verMinor }} --force
+
+          git tag -f v${{ needs.Setup.outputs.verMajor }}.${{ needs.Setup.outputs.verMinor }}.${{ needs.Setup.outputs.verPatch }}
+          git push origin v${{ needs.Setup.outputs.verMajor }}.${{ needs.Setup.outputs.verMinor }}.${{ needs.Setup.outputs.verPatch }} --force
+
       # Pushes the release
       - name: Publish release
-        uses: "marvinpinto/action-automatic-releases@latest"
+        uses: ncipollo/release-action@v1
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
+          name: "Automated Build - v${{needs.Setup.outputs.verSemVerString}} Release"
+          tag: v${{needs.Setup.outputs.verSemVerString}}
           prerelease: ${{env.is-prerelease}}
-          title: "Automated Build - v${{needs.Setup.outputs.verSemVerString}} Release"
-          files: |
-            ${{env.projectName}}_${{needs.Setup.outputs.verSemVerString}}.zip
+          artifacts: ${{env.projectName}}_${{needs.Setup.outputs.verSemVerString}}.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   postrun:
     name: Post-Run
