@@ -98,6 +98,14 @@ struct ManagedList // 0x20 (32)
 };
 #pragma warning(pop)
 
+struct Vec3 // 0x10 (16)
+{
+	float_t x;              // 0x00 - 0x03 (4)
+	float_t y;              // 0x04 - 0x07 (4)
+	float_t z;              // 0x08 - 0x0B (4)
+	uint8_t _unknown1[0x4]; // 0x0C - 0x0F (4)
+};
+
 struct Time // 0x20 (32)
 {
 	uint8_t _unknown1[0x10]; // 0x00 - 0x0F (16)
@@ -156,7 +164,9 @@ struct CharacterContext // 0xF8 (248)
 
 struct PlayerContext : CharacterContext // 0x150 (336)
 {
-	uint8_t _unknown4[0x58]; // 0xF8 - 0x14F (88)
+	uint8_t _unknown4[0x8];  // 0xF8 - 0xFF (8)
+	Vec3 PositionFast;       // 0x100 - 0x10F (16)
+	uint8_t _unknown5[0x40]; // 0x110 - 0x14F (64)
 };
 
 struct EnemyContext : CharacterContext // 0x138 (312)

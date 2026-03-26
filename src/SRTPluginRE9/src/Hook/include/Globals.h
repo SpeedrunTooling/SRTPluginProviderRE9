@@ -10,6 +10,7 @@
 #endif
 
 #include "DeferredWndProc.h"
+#include "GameObjects.h"
 #include "Logger.h"
 #include "Settings.h"
 #include <assert.h>
@@ -17,7 +18,17 @@
 #include <cstdint>
 #include <mutex>
 #include <optional>
+#include <uchar.h>
 #include <windows.h>
+
+namespace SRTPluginRE9
+{
+	constinit const char ToolNameShort[] = u8"SRT";
+	constinit const char ToolName[] = u8"Speed Run Tool";
+
+	constinit const char GameNameShort[] = u8"RE9";
+	constinit const char GameName[] = u8"Resident Evil 9: Requiem (2026)";
+}
 
 namespace SRTPluginRE9::Version
 {
@@ -78,6 +89,11 @@ extern "C"
 		float_t Y;
 		float_t Z;
 		// Store quaternion data also?
+
+		PositionalData operator=(const Vec3 &rhs) const
+		{
+			return {.X = rhs.x, .Y = rhs.y, .Z = rhs.z};
+		}
 	};
 
 	struct HPData
@@ -90,8 +106,17 @@ extern "C"
 	struct EnemyData
 	{
 		uint16_t KindID;
-		HPData HP;
-		PositionalData Position;
+		HPData HP{};
+		PositionalData Position{};
+		float_t Distance;
+	};
+
+	struct PlayerData
+	{
+		uint16_t KindID;
+		HPData HP{};
+		PositionalData Position{};
+		float_t Distance;
 	};
 
 	struct SRTGameData
@@ -100,7 +125,7 @@ extern "C"
 		uint32_t RunningTimers;    // Enum
 		int32_t DARank;
 		int32_t DAScore;
-		HPData PlayerHP;
+		PlayerData Player{};
 		InteropArray AllEnemies;
 		InteropArray FilteredEnemies;
 	};

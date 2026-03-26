@@ -121,7 +121,9 @@ namespace SRTPluginRE9::Hook
 		ImGui::SetNextWindowSize(ImVec2(400, 260), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.MainOpacity);
 
-		if (!ImGui::Begin("SRT", (bool *)&mainUIOpen, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoCollapse))
+		// "Display Title###Unique Window ID"
+		static const std::string mainWindowTitle = std::format("{} - v{}###SRTMain", SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer);
+		if (!ImGui::Begin(mainWindowTitle.c_str(), (bool *)&mainUIOpen, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoCollapse))
 		{
 			ImGui::End();
 			return;
@@ -155,10 +157,10 @@ namespace SRTPluginRE9::Hook
 			ImGui::EndMenuBar();
 		}
 
-		ImGui::Text("Welcome to the beta build of RE9's SRT.");
+		ImGui::Text("Thank you for using the %s for %s.", SRTPluginRE9::ToolNameShort, SRTPluginRE9::GameName);
 		ImGui::Separator();
-		ImGui::Text("Press F7 to toggle the main SRT window.");
-		ImGui::Text("Press F8 or go to File -> Exit to shutdown the SRT.");
+		ImGui::Text("Press F7 to toggle the main %s window.", SRTPluginRE9::ToolNameShort);
+		ImGui::Text("Press F8 or go to File -> Exit to shutdown the %s.", SRTPluginRE9::ToolNameShort);
 		ImGui::Separator();
 
 		ImGui::Text("Resolution: %.0fx%.0f", horizontal, vertical);
@@ -225,16 +227,17 @@ namespace SRTPluginRE9::Hook
 		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4, io.DisplaySize.y / 4), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.AboutOpacity);
 
-		if (!ImGui::Begin("SRT: About", (bool *)&aboutUIOpen, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize))
+		static const std::string aboutWindowTitle = std::format("{}: About###SRTAbout", SRTPluginRE9::ToolNameShort);
+		if (!ImGui::Begin(aboutWindowTitle.c_str(), (bool *)&aboutUIOpen, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			ImGui::End();
 			return;
 		}
 
-		ImGui::Text("Resident Evil 9 Requiem (2026) Speed Run Tool");
+		ImGui::Text("%s %s", SRTPluginRE9::GameName, SRTPluginRE9::ToolName);
 		ImGui::Text("v%s", SRTPluginRE9::Version::SemVer.data());
 		ImGui::Separator();
-		ImGui::BulletText("Contributors\n\tSquirrelies\n\tHntd");
+		ImGui::BulletText("Contributors\n\tSquirrelies\n\tHntd\n\tJaxon\n\tKestrel");
 		ImGui::Spacing();
 		ImGui::Spacing();
 		bool copyToClipboard = ImGui::Button("Copy to clipboard");
@@ -247,8 +250,8 @@ namespace SRTPluginRE9::Hook
 				ImGui::LogText("```\n"); // Back quotes will make text appears without formatting when pasting on GitHub
 			}
 
-			ImGui::Text("Resident Evil 9 Requiem (2026) Speed Run Tool");
-			// ImGui::Text("v%s", SRTPluginRE9::Version::SemVer.data());
+			ImGui::Text("%s %s", SRTPluginRE9::GameName, SRTPluginRE9::ToolName);
+			ImGui::Text("v%s", SRTPluginRE9::Version::SemVer.data());
 			ImGui::Separator();
 			ImGui::Text("Build datetime: %s %s", __DATE__, __TIME__);
 			// ImGui::Text("Debug build: %s", SRTPluginRE9::IsDebug ? "true" : "false");
@@ -322,7 +325,8 @@ namespace SRTPluginRE9::Hook
 		ImGui::SetNextWindowSize(ImVec2(880, 440), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.LoggerOpacity);
 
-		if (!ImGui::Begin("Logger", &debugLoggerOpen, window_flags))
+		static const std::string debugLoggerWindowTitle = std::format("{} Log Viewer###SRTDebugLogger", SRTPluginRE9::ToolNameShort);
+		if (!ImGui::Begin(debugLoggerWindowTitle.c_str(), &debugLoggerOpen, window_flags))
 		{
 			ImGui::End();
 			return;
@@ -407,7 +411,9 @@ namespace SRTPluginRE9::Hook
 		ImGui::SetNextWindowPos(ImVec2(8, 145), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowSize(ImVec2(240, 340), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.OverlayOpacity);
-		if (ImGui::Begin("SRT Debug Overlay", &overlayOpen, window_flags))
+
+		static const std::string debugOverlayWindowTitle = std::format("{} Debug Overlay###SRTDebugOverlay", SRTPluginRE9::ToolNameShort);
+		if (ImGui::Begin(debugOverlayWindowTitle.c_str(), &overlayOpen, window_flags))
 		{
 			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
 			const auto &localGameData = g_GameDataBuffers[readIndex].Data;
@@ -417,7 +423,8 @@ namespace SRTPluginRE9::Hook
 			ImGui::Text("Points: %" PRIi32, localGameData.DAScore);
 
 			// Player HP
-			ImGui::Text("Player: %" PRIi32 " / %" PRIi32, localGameData.PlayerHP.CurrentHP, localGameData.PlayerHP.MaximumHP);
+			ImGui::Text("Player: %" PRIi32 " / %" PRIi32, localGameData.Player.HP.CurrentHP, localGameData.Player.HP.MaximumHP);
+			// ImGui::Text("X: %.2f Y: %.2f Z: %.2f", localGameData.Player.Position.X, localGameData.Player.Position.Y, localGameData.Player.Position.Z);
 			ImGui::Separator();
 
 			// Enemies
@@ -468,7 +475,8 @@ namespace SRTPluginRE9::Hook
 				break;
 		}
 
-		if (ImGui::Begin("Logo", nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove))
+		static const std::string logoWindowTitle = std::format("{} Logo###SRTLogo", SRTPluginRE9::ToolNameShort);
+		if (ImGui::Begin(logoWindowTitle.c_str(), nullptr, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoMove))
 		{
 			ImGui::Image(
 			    logoHandle.gpu.ptr,

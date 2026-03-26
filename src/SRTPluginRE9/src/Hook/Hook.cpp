@@ -6,6 +6,7 @@
 #include "CompositeOrderer.h"
 #include "DeferredWndProc.h"
 #include "Globals.h"
+#include "ObjectHelpers.h"
 #include "Render.h"
 #include "Settings.h"
 #include "UI.h"
@@ -630,9 +631,13 @@ namespace SRTPluginRE9::Hook
 			auto activePlayerContext = characterManager.follow(&CharacterManager::PlayerContextFast);
 			auto playerHitPoint = activePlayerContext.follow(&PlayerContext::HitPoint);
 			auto playerHitPointData = playerHitPoint.follow(&HitPoint::HitPointData);
-			localGameData.Data.PlayerHP.CurrentHP = playerHitPointData.read(&CharacterHitPointData::_CurrentHP);
-			localGameData.Data.PlayerHP.MaximumHP = playerHitPointData.read(&CharacterHitPointData::_CurrentMaxHP);
-			localGameData.Data.PlayerHP.IsSetup = playerHitPointData.read(&CharacterHitPointData::_IsSetuped);
+			localGameData.Data.Player.KindID = activePlayerContext.read(&PlayerContext::KindID),
+			localGameData.Data.Player.HP.CurrentHP = playerHitPointData.read(&CharacterHitPointData::_CurrentHP);
+			localGameData.Data.Player.HP.MaximumHP = playerHitPointData.read(&CharacterHitPointData::_CurrentMaxHP);
+			localGameData.Data.Player.HP.IsSetup = playerHitPointData.read(&CharacterHitPointData::_IsSetuped);
+			localGameData.Data.Player.Position = {};
+			// localGameData.Data.Player.Position = activePlayerContext.read(&PlayerContext::PositionFast);
+			localGameData.Data.Player.Distance = {};
 
 			// Enemy HP
 			auto enemyContextManagedList = characterManager.follow(&CharacterManager::EnemyContextList);
@@ -650,7 +655,8 @@ namespace SRTPluginRE9::Hook
 				                                              		.MaximumHP = hitPointData.read(&CharacterHitPointData::_CurrentMaxHP),
 				                                              		.IsSetup = hitPointData.read(&CharacterHitPointData::_IsSetuped) != 0
 				                                              	},
-				                                              	.Position = PositionalData{}
+				                                              	.Position = PositionalData{},
+																.Distance = {}
 				                                              }; }) |
 			                                  std::ranges::to<std::vector>();
 
