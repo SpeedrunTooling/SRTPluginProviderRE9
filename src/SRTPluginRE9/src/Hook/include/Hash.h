@@ -16,7 +16,7 @@
 
 namespace SRTPluginRE9::Hash
 {
-	const std::expected<const std::array<uint8_t, 32>, std::string> GetFileHashSHA256(const char *);
+	const std::expected<const std::array<uint8_t, 32>, std::string> GetFileHashSHA256(const std::string &);
 
 	const std::string ArrayToHexString(const std::array<uint8_t, 32> &);
 }

@@ -64,6 +64,7 @@ target_sources(${PROJECT_NAME}
         Logger.cpp
         Hash.cpp
         Process.cpp
+        GameVersion.cpp
         DllMain.cpp
 )
 

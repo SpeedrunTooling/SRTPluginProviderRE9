@@ -5,6 +5,7 @@
 #include "Hook.h"
 #include "CompositeOrderer.h"
 #include "DeferredWndProc.h"
+#include "GameVersion.h"
 #include "Globals.h"
 #include "ObjectHelpers.h"
 #include "Render.h"
@@ -615,17 +616,36 @@ namespace SRTPluginRE9::Hook
 			return retVal;
 		}
 
-		// 2026-03-13
-		// auto rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E815400ULL)).deref();
-		// auto characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E843CF8ULL)).deref();
-		// auto gameClock = protect(reinterpret_cast<GameClock **>(*g_BaseAddress + 0x0E834680ULL)).deref();
-		// auto cameraSystem = protect(reinterpret_cast<CameraSystem **>(*g_BaseAddress + 0x0E816138ULL)).deref();
+		Protected_Ptr<RankManager> rankManager;
+		Protected_Ptr<CharacterManager> characterManager;
+		// Protected_Ptr<GameClock> gameClock;
+		// Protected_Ptr<CameraSystem> cameraSystem;
 
-		// 2026-03-27
-		auto rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E8C7750ULL)).deref();
-		auto characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E90FE10ULL)).deref();
-		// auto gameClock = protect(reinterpret_cast<GameClock **>(*g_BaseAddress + 0x0ULL)).deref();
-		// auto cameraSystem = protect(reinterpret_cast<CameraSystem **>(*g_BaseAddress + 0x0ULL)).deref();
+		// Detect game version and set base pointers.
+		{
+			auto gameVersion = SRTPluginRE9::GameVersion::DetectGameVersion();
+			if (!gameVersion.has_value())
+				logger->LogMessage("Hook::ThreadMain() unable to detect game version: {}\n", gameVersion.error().c_str());
+			else
+				logger->LogMessage("Hook::ThreadMain() Game version enumeration value: {}\n", std::to_underlying(gameVersion.value()));
+			switch (gameVersion.value())
+			{
+				default:
+				case GameVersion::GameVersion::WW_20260327_1:
+				{
+					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E8C7750ULL)).deref();
+					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E90FE10ULL)).deref();
+					break;
+				}
+
+				case GameVersion::GameVersion::WW_20260225_1:
+				{
+					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E815400ULL)).deref();
+					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E843CF8ULL)).deref();
+					break;
+				}
+			}
+		}
 
 		// Read until shutdown requested.
 		while (!g_shutdownRequested.load())

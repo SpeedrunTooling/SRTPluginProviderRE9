@@ -3,17 +3,17 @@
 
 namespace SRTPluginRE9::Hash
 {
-	bool FileExists(const char *filePath)
+	bool FileExists(const std::string &filePath)
 	{
 		FILE *file;
-		return !fopen_s(&file, filePath, "rb") && !fclose(file);
+		return !fopen_s(&file, filePath.data(), "rb") && !fclose(file);
 	}
 
-	const std::expected<const size_t, std::string> GetFileSizeT(const char *filePath)
+	const std::expected<const size_t, std::string> GetFileSizeT(const std::string &filePath)
 	{
 		FILE *file;
 
-		if (fopen_s(&file, filePath, "rb"))
+		if (fopen_s(&file, filePath.data(), "rb"))
 			return std::unexpected("Unable to open file"); // Unable to open!
 
 		if (_fseeki64(file, 0LL, SEEK_END) < 0LL)
@@ -27,19 +27,19 @@ namespace SRTPluginRE9::Hash
 		return size;
 	}
 
-	const std::expected<const std::array<uint8_t, 32>, std::string> GetFileHashSHA256(const char *filePath)
+	const std::expected<const std::array<uint8_t, 32>, std::string> GetFileHashSHA256(const std::string &filePath)
 	{
 		constexpr const int32_t bufferSize = SIZE_OF_SHA_256_CHUNK * SIZE_OF_SHA_256_CHUNK;
 
 		FILE *file;
-		if (fopen_s(&file, filePath, "rb"))
+		if (fopen_s(&file, filePath.data(), "rb"))
 			return std::unexpected("Unable to open file for reading");
 
 		std::array<uint8_t, 32> hash{};
 		struct Sha_256 sha_256;
 		sha_256_init(&sha_256, hash.data());
 
-		auto fileSize = GetFileSizeT(filePath);
+		auto fileSize = GetFileSizeT(filePath.data());
 		if (!fileSize.has_value())
 			return std::unexpected(fileSize.error());
 
