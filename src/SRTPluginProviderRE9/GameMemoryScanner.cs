@@ -64,10 +64,24 @@ internal class GameMemoryScanner : IDisposable
                     break;
                 }
 
-            case GameVersion.WW_20260225_1:
+            case GameVersion.WW_20260313_1:
                 {
                     pointerAppRankManager = 0x0E815400; // app.RankManager
                     pointerAppCharacterManager = 0x0E843CF8; // app.CharacterManager
+                    break;
+                }
+
+            case GameVersion.WW_20260305_1:
+                {
+                    pointerAppRankManager = 0x0E816400; // app.RankManager
+                    pointerAppCharacterManager = 0x0E844CF8; // app.CharacterManager
+                    break;
+                }
+
+            case GameVersion.WW_20260225_1:
+                {
+                    pointerAppRankManager = 0x0E857F30; // app.RankManager
+                    pointerAppCharacterManager = 0x0E8377C8; // app.CharacterManager
                     break;
                 }
         }
