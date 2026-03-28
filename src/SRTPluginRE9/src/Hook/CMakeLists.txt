@@ -50,6 +50,7 @@ target_compile_definitions(${PROJECT_NAME}
 target_sources(${PROJECT_NAME}
     PRIVATE
         ${PROJECT_BINARY_DIR}/VersionInfoHook.rc
+        extern/amosnier/sha-2/sha-256.c
         VTableScanner.cpp
         AOBScanner.cpp
         DescriptorHeapAllocator.cpp
@@ -61,6 +62,7 @@ target_sources(${PROJECT_NAME}
         DInput8Hook.cpp
         Hook.cpp
         Logger.cpp
+        Hash.cpp
         DllMain.cpp
 )
 
