@@ -626,22 +626,39 @@ namespace SRTPluginRE9::Hook
 			auto gameVersion = SRTPluginRE9::GameVersion::DetectGameVersion();
 			if (!gameVersion.has_value())
 				logger->LogMessage("Hook::ThreadMain() unable to detect game version: {}\n", gameVersion.error().c_str());
-			else
-				logger->LogMessage("Hook::ThreadMain() Game version enumeration value: {}\n", std::to_underlying(gameVersion.value()));
+
 			switch (gameVersion.value())
 			{
 				default:
-				case GameVersion::GameVersion::WW_20260327_1:
+				case GameVersion::GameVersion::WW_20260327_1: // 1.2.0.0
 				{
+					logger->LogMessage("Hook::ThreadMain() Game version: WW_20260327_1\n");
 					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E8C7750ULL)).deref();
 					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E90FE10ULL)).deref();
 					break;
 				}
 
-				case GameVersion::GameVersion::WW_20260225_1:
+				case GameVersion::GameVersion::WW_20260313_1: // 1.1.2.0
 				{
+					logger->LogMessage("Hook::ThreadMain() Game version: WW_20260313_1\n");
 					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E815400ULL)).deref();
 					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E843CF8ULL)).deref();
+					break;
+				}
+
+				case GameVersion::GameVersion::WW_20260305_1: // 1.1.1.0
+				{
+					logger->LogMessage("Hook::ThreadMain() Game version: WW_20260305_1\n");
+					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E816400ULL)).deref();
+					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E844CF8ULL)).deref();
+					break;
+				}
+
+				case GameVersion::GameVersion::WW_20260225_1: // 1.0.0.0
+				{
+					logger->LogMessage("Hook::ThreadMain() Game version: WW_20260225_1\n");
+					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E857F30ULL)).deref();
+					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E8377C8ULL)).deref();
 					break;
 				}
 			}

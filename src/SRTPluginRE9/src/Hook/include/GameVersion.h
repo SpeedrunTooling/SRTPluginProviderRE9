@@ -17,8 +17,10 @@ namespace SRTPluginRE9::GameVersion
 	enum class GameVersion
 	{
 		Unknown = 0,
-		WW_20260225_1 = 1,
-		WW_20260327_1 = 2,
+		WW_20260225_1,
+		WW_20260305_1,
+		WW_20260313_1,
+		WW_20260327_1,
 	};
 
 	const std::expected<const GameVersion, std::string> DetectGameVersion();
