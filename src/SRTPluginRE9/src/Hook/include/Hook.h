@@ -42,6 +42,8 @@ namespace SRTPluginRE9::Hook
 		void Shutdown();
 		static Hook &GetInstance();
 		static DWORD WINAPI ThreadMain(LPVOID lpThreadParameter);
+
+		static void WINAPI MainLoop();
 	};
 }
 

@@ -10,6 +10,7 @@
 #include "ObjectHelpers.h"
 #include "Render.h"
 #include "Settings.h"
+#include "Thread.h"
 #include "UI.h"
 #include "imgui_impl_win32.h"
 #include <MinHook.h>
@@ -604,9 +605,14 @@ namespace SRTPluginRE9::Hook
 	DWORD WINAPI Hook::ThreadMain([[maybe_unused]] LPVOID lpThreadParameter)
 	{
 		auto retVal = DWORD(0);
+		HRESULT hResult;
 		logger->LogMessage("Hook::ThreadMain() called.\n");
 
 		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+
+		hResult = SRTPluginRE9::Thread::SetThreadName(GetCurrentThread(), std::format("{} {} Main Thread", SRTPluginRE9::GameNameShort, SRTPluginRE9::ToolNameShort));
+		if (FAILED(hResult))
+			logger->LogMessage("Hook::ThreadMain() failed to set thread description: {:d}\n", static_cast<uint32_t>(hResult));
 
 		if (!Hook::GetInstance().Startup())
 		{
@@ -616,51 +622,63 @@ namespace SRTPluginRE9::Hook
 			return retVal;
 		}
 
+		// Loops until shutdown requested. Performs memory reads and stores results in a buffer.
+		MainLoop();
+
+		logger->LogMessage("Hook::ThreadMain() Shutdown request received.\n");
+
+		Hook::GetInstance().Shutdown();
+
+		logger->LogMessage("Hook::ThreadMain() exiting: {:d}\n", retVal);
+
+		FreeLibraryAndExitThread(g_dllModule, retVal);
+	}
+
+	void WINAPI Hook::MainLoop()
+	{
 		Protected_Ptr<RankManager> rankManager;
 		Protected_Ptr<CharacterManager> characterManager;
 		// Protected_Ptr<GameClock> gameClock;
 		// Protected_Ptr<CameraSystem> cameraSystem;
 
 		// Detect game version and set base pointers.
+		auto gameVersion = SRTPluginRE9::GameVersion::DetectGameVersion();
+		if (!gameVersion.has_value())
+			logger->LogMessage("Hook::ThreadMain() unable to detect game version: {}\n", gameVersion.error().c_str());
+
+		switch (gameVersion.value())
 		{
-			auto gameVersion = SRTPluginRE9::GameVersion::DetectGameVersion();
-			if (!gameVersion.has_value())
-				logger->LogMessage("Hook::ThreadMain() unable to detect game version: {}\n", gameVersion.error().c_str());
-
-			switch (gameVersion.value())
+			default:
+			case GameVersion::GameVersion::WW_20260327_1: // 1.2.0.0
 			{
-				default:
-				case GameVersion::GameVersion::WW_20260327_1: // 1.2.0.0
-				{
-					logger->LogMessage("Hook::ThreadMain() Game version: WW_20260327_1\n");
-					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E8C7750ULL)).deref();
-					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E90FE10ULL)).deref();
-					break;
-				}
+				logger->LogMessage("Hook::ThreadMain() Game version: WW_20260327_1\n");
+				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E8C7750ULL)).deref();
+				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E90FE10ULL)).deref();
+				break;
+			}
 
-				case GameVersion::GameVersion::WW_20260313_1: // 1.1.2.0
-				{
-					logger->LogMessage("Hook::ThreadMain() Game version: WW_20260313_1\n");
-					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E815400ULL)).deref();
-					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E843CF8ULL)).deref();
-					break;
-				}
+			case GameVersion::GameVersion::WW_20260313_1: // 1.1.2.0
+			{
+				logger->LogMessage("Hook::ThreadMain() Game version: WW_20260313_1\n");
+				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E815400ULL)).deref();
+				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E843CF8ULL)).deref();
+				break;
+			}
 
-				case GameVersion::GameVersion::WW_20260305_1: // 1.1.1.0
-				{
-					logger->LogMessage("Hook::ThreadMain() Game version: WW_20260305_1\n");
-					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E816400ULL)).deref();
-					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E844CF8ULL)).deref();
-					break;
-				}
+			case GameVersion::GameVersion::WW_20260305_1: // 1.1.1.0
+			{
+				logger->LogMessage("Hook::ThreadMain() Game version: WW_20260305_1\n");
+				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E816400ULL)).deref();
+				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E844CF8ULL)).deref();
+				break;
+			}
 
-				case GameVersion::GameVersion::WW_20260225_1: // 1.0.0.0
-				{
-					logger->LogMessage("Hook::ThreadMain() Game version: WW_20260225_1\n");
-					rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E857F30ULL)).deref();
-					characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E8377C8ULL)).deref();
-					break;
-				}
+			case GameVersion::GameVersion::WW_20260225_1: // 1.0.0.0
+			{
+				logger->LogMessage("Hook::ThreadMain() Game version: WW_20260225_1\n");
+				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E857F30ULL)).deref();
+				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E8377C8ULL)).deref();
+				break;
 			}
 		}
 
@@ -752,14 +770,5 @@ namespace SRTPluginRE9::Hook
 			// Sleep until next read operation.
 			Sleep(memoryReadIntervalInMS);
 		}
-
-		logger->LogMessage("Hook::ThreadMain() Shutdown request received.\n");
-
-		Hook::GetInstance().Shutdown();
-
-		logger->LogMessage("Hook::ThreadMain() exiting: {:d}\n", retVal);
-
-		FreeLibraryAndExitThread(g_dllModule, retVal);
 	}
-
 }

@@ -2,6 +2,7 @@
 
 #include "Hook.h"
 #include "Logger.h"
+#include "Thread.h"
 #include <DbgHelp.h>
 #include <chrono>
 #include <mutex>
@@ -62,6 +63,8 @@ LONG WINAPI SRTUnhandledExceptionFilter(EXCEPTION_POINTERS *pExceptionInfo)
 // DLL Entry Point
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 {
+	HRESULT hResult;
+
 	if (ul_reason_for_call == DLL_PROCESS_ATTACH)
 	{
 		g_dllModule = hModule;
@@ -83,6 +86,10 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 			logger->LogMessage("{} {}: v{}\n", SRTPluginRE9::GameNameShort, SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer);
 			logger->LogMessage("DllMain() entered with reason: {:d}\n", ul_reason_for_call);
 
+			hResult = SRTPluginRE9::Thread::SetThreadName(GetCurrentThread(), std::format("{} {} Entry Thread", SRTPluginRE9::GameNameShort, SRTPluginRE9::ToolNameShort));
+			if (FAILED(hResult))
+				logger->LogMessage("DllMain() failed to set thread description: {:d}\n", static_cast<uint32_t>(hResult));
+
 			// Create thread to avoid blocking loader lock
 			g_mainThread = CreateThread(
 			    nullptr,
@@ -93,9 +100,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 			    nullptr);
 
 			if (g_mainThread)
-			{
 				CloseHandle(g_mainThread);
-			}
 		}
 	}
 	else if (ul_reason_for_call == DLL_PROCESS_DETACH)
