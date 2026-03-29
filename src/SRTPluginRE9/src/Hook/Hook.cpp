@@ -7,7 +7,6 @@
 #include "DeferredWndProc.h"
 #include "GameVersion.h"
 #include "Globals.h"
-#include "ObjectHelpers.h"
 #include "Render.h"
 #include "Settings.h"
 #include "Thread.h"
@@ -703,18 +702,18 @@ namespace SRTPluginRE9::Hook
 			localGameData.Data.Player.HP.CurrentHP = playerHitPointData.read(&CharacterHitPointData::_CurrentHP);
 			localGameData.Data.Player.HP.MaximumHP = playerHitPointData.read(&CharacterHitPointData::_CurrentMaxHP);
 			localGameData.Data.Player.HP.IsSetup = playerHitPointData.read(&CharacterHitPointData::_IsSetuped);
-			localGameData.Data.Player.Position = {};
-			// localGameData.Data.Player.Position = activePlayerContext.read(&PlayerContext::PositionFast);
-			localGameData.Data.Player.Distance = {};
+			localGameData.Data.Player.Position = activePlayerContext.read(&PlayerContext::PositionFast);
 
 			// Enemy HP
 			auto enemyContextManagedList = characterManager.follow(&CharacterManager::EnemyContextList);
 			localGameData.AllEnemiesBacking = std::span(enemyContextManagedList->begin(), enemyContextManagedList->end()) |
-			                                  std::views::transform([](const EnemyContext *enemyContext)
+			                                  std::views::transform([&localGameData](const EnemyContext *enemyContext)
 			                                                        {
 				                                              auto protectedEnemyContext = protect(enemyContext);
 															  auto kindString = protectedEnemyContext.follow(&EnemyContext::KindID).follow(&CharacterKindID::KindString);
 				                                              auto hitPointData = protectedEnemyContext.follow(&EnemyContext::HitPoint).follow(&HitPoint::HitPointData);
+															  auto enemyFormationMemberInfo = protectedEnemyContext.follow(&EnemyContext::FormationMemberInfo);
+															  auto enemyPosition = enemyFormationMemberInfo.read(&EnemyFormationMemberInfo::Position);
 				                                              return EnemyData
 				                                              {
 				                                              	.KindID = kindString->GetString(),
@@ -724,8 +723,9 @@ namespace SRTPluginRE9::Hook
 				                                              		.MaximumHP = hitPointData.read(&CharacterHitPointData::_CurrentMaxHP),
 				                                              		.IsSetup = hitPointData.read(&CharacterHitPointData::_IsSetuped) != 0
 				                                              	},
-				                                              	.Position = PositionalData{},
-																.Distance = {}
+				                                              	.Position = enemyPosition,
+																.Distance = localGameData.Data.Player.Position.EuclideanDistance(enemyPosition),
+																.IsSpawned = static_cast<bool>(enemyFormationMemberInfo)
 				                                              }; }) |
 			                                  std::ranges::to<std::vector>();
 
@@ -735,7 +735,7 @@ namespace SRTPluginRE9::Hook
 
 			localGameData.FilteredEnemiesBacking = localGameData.AllEnemiesBacking |
 			                                       std::views::filter([](const EnemyData &enemyData)
-			                                                          { return enemyData.HP.MaximumHP >= 2 && enemyData.HP.CurrentHP != 0; }) |
+			                                                          { return enemyData.HP.MaximumHP >= 2 && enemyData.HP.CurrentHP != 0 && enemyData.IsSpawned; }) |
 			                                       std::ranges::to<std::vector>();
 
 			constexpr auto compare = OrderByDescending([](const EnemyData &enemyData)

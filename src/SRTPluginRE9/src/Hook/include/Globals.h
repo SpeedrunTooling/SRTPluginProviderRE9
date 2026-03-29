@@ -15,6 +15,7 @@
 #include "Settings.h"
 #include <assert.h>
 #include <atomic>
+#include <cmath>
 #include <cstdint>
 #include <mutex>
 #include <optional>
@@ -83,16 +84,37 @@ extern "C"
 		void *Values;
 	};
 
-	struct PositionalData
+	struct PositionalDataFloat
 	{
 		float_t X;
 		float_t Y;
 		float_t Z;
 		// Store quaternion data also?
 
-		PositionalData operator=(const Vec3 &rhs) const
+		PositionalDataFloat() {}
+		PositionalDataFloat(const float_t &x, const float_t &y, const float_t &z) : X(x), Y(y), Z(z) {}
+		PositionalDataFloat(const Vec3 &rhs) : X(rhs.x), Y(rhs.y), Z(rhs.z) {}
+
+		PositionalDataFloat operator+(const PositionalDataFloat &rhs) const
 		{
-			return {.X = rhs.x, .Y = rhs.y, .Z = rhs.z};
+			return {X + rhs.X, Y + rhs.Y, Z + rhs.Z};
+		}
+
+		PositionalDataFloat operator-(const PositionalDataFloat &rhs) const
+		{
+			return {X - rhs.X, Y - rhs.Y, Z - rhs.Z};
+		}
+
+		const float_t EuclideanDistance(const PositionalDataFloat &rhs) const
+		{
+			auto [dx, dy, dz] = *this - rhs;
+			return std::hypot(dx, dy, dz);
+		}
+
+		const float_t EuclideanDistance(const PositionalDataFloat &lhs, const PositionalDataFloat &rhs) const
+		{
+			auto [dx, dy, dz] = lhs - rhs;
+			return std::hypot(dx, dy, dz);
 		}
 	};
 
@@ -107,16 +129,16 @@ extern "C"
 	{
 		std::string KindID;
 		HPData HP{};
-		PositionalData Position{};
+		PositionalDataFloat Position{};
 		float_t Distance;
+		bool IsSpawned = false;
 	};
 
 	struct PlayerData
 	{
 		std::string KindID;
 		HPData HP{};
-		PositionalData Position{};
-		float_t Distance;
+		PositionalDataFloat Position{};
 	};
 
 	struct SRTGameData

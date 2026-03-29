@@ -10,6 +10,7 @@
 #endif
 
 #include <Windows.h>
+#include <cmath>
 #include <cstdint>
 #include <string>
 
@@ -191,6 +192,13 @@ struct RankManager // 0x38 (-)
 
 // *** Char Mgr
 
+struct EnemyFormationMemberInfo // 0x60 (96)
+{
+	uint8_t _unknown1[0x10]; // 0x00 - 0x0F (16)
+	Vec3 Position;           // 0x10 - 0x1F (16)
+	uint8_t _unknown2[0x40]; // 0x20 - 0x5F (64)
+};
+
 struct CharacterKindID
 {
 	uint8_t _unknown1[0x10]; // 0x00 - 0x0F (16)
@@ -232,7 +240,9 @@ struct PlayerContext : CharacterContext // 0x150 (336)
 
 struct EnemyContext : CharacterContext // 0x138 (312)
 {
-	uint8_t _unknown4[0x40]; // 0xF8 - 0x137 (64)
+	uint8_t _unknown4[0x28];                       // 0xF8 - 0x119 (40)
+	EnemyFormationMemberInfo *FormationMemberInfo; // 0x120 - 0x127 (8)
+	uint8_t _unknown5[0x10];                       // 0x128 - 0x137 (16)
 };
 
 struct CharacterManager // 0x1F0 (496)

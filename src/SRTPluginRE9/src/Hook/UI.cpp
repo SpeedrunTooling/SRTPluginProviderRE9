@@ -398,7 +398,7 @@ namespace SRTPluginRE9::Hook
 
 			// Player HP
 			ImGui::Text("Player: %" PRIi32 " / %" PRIi32, localGameData.Player.HP.CurrentHP, localGameData.Player.HP.MaximumHP);
-			// ImGui::Text("X: %.2f Y: %.2f Z: %.2f", localGameData.Player.Position.X, localGameData.Player.Position.Y, localGameData.Player.Position.Z);
+			ImGui::Text("X: %.2f Y: %.2f Z: %.2f", localGameData.Player.Position.X, localGameData.Player.Position.Y, localGameData.Player.Position.Z);
 			ImGui::Separator();
 
 			// Enemies
@@ -415,6 +415,14 @@ namespace SRTPluginRE9::Hook
 					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesInjuredTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 				else
 					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+
+				std::string distanceString;
+				if (enemyData.IsSpawned)
+					distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f}) -> Dist: {:6.2f}", enemyData.Position.X, enemyData.Position.Y, enemyData.Position.Z, enemyData.Distance);
+				else
+					distanceString = "Not Spawned In";
+
+				ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), distanceString.c_str());
 
 				if (g_SRTSettings.EnemyHPBarsVisible)
 					RenderHPBar(enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
