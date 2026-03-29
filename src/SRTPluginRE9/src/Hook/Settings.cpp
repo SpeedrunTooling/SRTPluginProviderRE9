@@ -91,6 +91,8 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "EnemiesShowNotSpawned=", g_SRTSettings.EnemiesShowNotSpawned);
 	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "EnemiesMaxDistance=", g_SRTSettings.EnemiesMaxDistance);
+	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "EnemyHPBarsWidth=", g_SRTSettings.EnemyHPBarsWidth);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "EnemyHPBarsHeight=", g_SRTSettings.EnemyHPBarsHeight);
@@ -135,6 +137,7 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 	out_buf->appendf("EnemyHPBarsVisible=%d\n", g_SRTSettings.EnemyHPBarsVisible);
 	out_buf->appendf("EnemyHPBarsShowPercent=%d\n", g_SRTSettings.EnemyHPBarsShowPercent);
 	out_buf->appendf("EnemiesShowNotSpawned=%d\n", g_SRTSettings.EnemiesShowNotSpawned);
+	out_buf->appendf("EnemiesMaxDistance=%f\n", g_SRTSettings.EnemiesMaxDistance);
 	out_buf->appendf("EnemyHPBarsWidth=%f\n", g_SRTSettings.EnemyHPBarsWidth);
 	out_buf->appendf("EnemyHPBarsHeight=%f\n", g_SRTSettings.EnemyHPBarsHeight);
 	out_buf->appendf("EnemyHPBarForeColorIndex=%d\n", g_SRTSettings.EnemyHPBarForeColorIndex);

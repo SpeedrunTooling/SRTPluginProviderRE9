@@ -173,9 +173,7 @@ namespace SRTPluginRE9::Hook
 		{
 			ImGui::Checkbox("Hide full HP enemies", reinterpret_cast<bool *>(&g_SRTSettings.EnemiesHideFullHP));
 			if (!g_SRTSettings.EnemiesHideFullHP)
-			{
 				ImGui::Combo("Full HP enemy text color", &g_SRTSettings.EnemiesFullHPTextColorIndex, colorPresets, IM_ARRAYSIZE(colorPresets));
-			}
 			ImGui::Combo("Injured enemy text color", &g_SRTSettings.EnemiesInjuredTextColorIndex, colorPresets, IM_ARRAYSIZE(colorPresets));
 
 			ImGui::Checkbox("Show HP bars", reinterpret_cast<bool *>(&g_SRTSettings.EnemyHPBarsVisible));
@@ -189,6 +187,8 @@ namespace SRTPluginRE9::Hook
 				ImGui::Combo("Background color", &g_SRTSettings.EnemyHPBarBackColorIndex, colorPresets, IM_ARRAYSIZE(colorPresets));
 				ImGui::Checkbox("Darken bar colors", reinterpret_cast<bool *>(&g_SRTSettings.DarkenBarColors));
 			}
+			ImGui::SliderFloat("Enemy distance filter", &g_SRTSettings.EnemiesMaxDistance, 1.f, 250.f, "%5.1f");
+			ImGui::Checkbox("Show non-spawned enemies", reinterpret_cast<bool *>(&g_SRTSettings.EnemiesShowNotSpawned));
 		}
 
 		ImGui::End();
