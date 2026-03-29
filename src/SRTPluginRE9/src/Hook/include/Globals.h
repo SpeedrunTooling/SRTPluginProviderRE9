@@ -156,6 +156,7 @@ extern "C"
 // Double-buffered to allow the main thread and UI thread to operate on data independently.
 struct GameDataBuffer
 {
+	bool HasData = false; // Whether we have data from a read operation. This'll usually always be true except at first-start.
 	SRTGameData Data{};
 
 	// Backing storage - InteropArray::Values will point into these.

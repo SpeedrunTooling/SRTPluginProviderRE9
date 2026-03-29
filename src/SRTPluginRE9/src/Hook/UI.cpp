@@ -390,43 +390,50 @@ namespace SRTPluginRE9::Hook
 		if (ImGui::Begin(debugOverlayWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.OverlayUIOpened), window_flags))
 		{
 			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
-			const auto &localGameData = g_GameDataBuffers[readIndex].Data;
+			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
 
-			// DA
-			ImGui::Text("Rank: %" PRIi32, localGameData.DARank);
-			ImGui::Text("Points: %" PRIi32, localGameData.DAScore);
-
-			// Player Info
-			auto playerName = characterMap.contains(localGameData.Player.KindID) ? characterMap.at(localGameData.Player.KindID) : localGameData.Player.KindID;
-			ImGui::Text("%s: %" PRIi32 " / %" PRIi32, playerName.c_str(), localGameData.Player.HP.CurrentHP, localGameData.Player.HP.MaximumHP);
-			auto distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f})", localGameData.Player.Position.X, localGameData.Player.Position.Y, localGameData.Player.Position.Z);
-			ImGui::Text(distanceString.c_str());
-			ImGui::Separator();
-
-			// Enemies
-			const auto enemiesToShow = std::min(static_cast<size_t>(g_SRTSettings.EnemiesShownLimit), localGameData.FilteredEnemies.Size);
-			ImGui::Text("Enemies (%zu of %zu):", enemiesToShow, localGameData.FilteredEnemies.Size);
-
-			for (const auto &enemyData : std::span(static_cast<EnemyData *>(localGameData.FilteredEnemies.Values), localGameData.FilteredEnemies.Size) | std::views::take(g_SRTSettings.EnemiesShownLimit))
+			if (!localBufferedGameData.HasData)
+				ImGui::Text("SRT is loading...");
+			else
 			{
-				if (enemyData.HP.CurrentHP >= 1'000'000 || (g_SRTSettings.EnemiesHideFullHP && enemyData.HP.CurrentHP == enemyData.HP.MaximumHP))
-					continue;
+				const auto &localGameData = localBufferedGameData.Data;
 
-				auto enemyName = characterMap.contains(enemyData.KindID) ? characterMap.at(enemyData.KindID) : enemyData.KindID;
-				if (enemyData.HP.CurrentHP != enemyData.HP.MaximumHP)
-					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesInjuredTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
-				else
-					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+				// DA
+				ImGui::Text("Rank: %" PRIi32, localGameData.DARank);
+				ImGui::Text("Points: %" PRIi32, localGameData.DAScore);
 
-				if (enemyData.IsSpawned)
-					distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f}) -> Dist: {:6.2f}", enemyData.Position.X, enemyData.Position.Y, enemyData.Position.Z, enemyData.Distance);
-				else
-					distanceString = "Not Spawned In";
+				// Player Info
+				auto playerName = characterMap.contains(localGameData.Player.KindID) ? characterMap.at(localGameData.Player.KindID) : localGameData.Player.KindID;
+				ImGui::Text("%s: %" PRIi32 " / %" PRIi32, playerName.c_str(), localGameData.Player.HP.CurrentHP, localGameData.Player.HP.MaximumHP);
+				auto distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f})", localGameData.Player.Position.X, localGameData.Player.Position.Y, localGameData.Player.Position.Z);
+				ImGui::Text(distanceString.c_str());
+				ImGui::Separator();
 
-				ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), distanceString.c_str());
+				// Enemies
+				const auto enemiesToShow = std::min(static_cast<size_t>(g_SRTSettings.EnemiesShownLimit), localGameData.FilteredEnemies.Size);
+				ImGui::Text("Enemies (%zu of %zu):", enemiesToShow, localGameData.FilteredEnemies.Size);
 
-				if (g_SRTSettings.EnemyHPBarsVisible)
-					RenderHPBar(enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+				for (const auto &enemyData : std::span(static_cast<EnemyData *>(localGameData.FilteredEnemies.Values), localGameData.FilteredEnemies.Size) | std::views::take(g_SRTSettings.EnemiesShownLimit))
+				{
+					if (enemyData.HP.CurrentHP >= 1'000'000 || (g_SRTSettings.EnemiesHideFullHP && enemyData.HP.CurrentHP == enemyData.HP.MaximumHP))
+						continue;
+
+					auto enemyName = characterMap.contains(enemyData.KindID) ? characterMap.at(enemyData.KindID) : enemyData.KindID;
+					if (enemyData.HP.CurrentHP != enemyData.HP.MaximumHP)
+						ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesInjuredTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+					else
+						ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+
+					if (enemyData.IsSpawned)
+						distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f}) -> Dist: {:6.2f}", enemyData.Position.X, enemyData.Position.Y, enemyData.Position.Z, enemyData.Distance);
+					else
+						distanceString = "Not Spawned In";
+
+					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), distanceString.c_str());
+
+					if (g_SRTSettings.EnemyHPBarsVisible)
+						RenderHPBar(enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+				}
 			}
 		}
 		ImGui::End();

@@ -764,6 +764,8 @@ namespace SRTPluginRE9::Hook
 			//     .Size = allTimersVector.size(),
 			//     .Values = allTimersVector.data()};
 
+			localGameData.HasData = true;
+
 			// Release this index back to the data buffer.
 			g_GameDataBufferReadIndex.store(writeIndex, std::memory_order_release);
 
