@@ -1,11 +1,13 @@
-#ifndef SRTPLUGINRE9_ENEMYIDS_H
-#define SRTPLUGINRE9_ENEMYIDS_H
+#ifndef SRTPLUGINRE9_CHARACTERMAP_H
+#define SRTPLUGINRE9_CHARACTERMAP_H
 
-#include <cstdint>
 #include <map>
+#include <string>
 
-static const std::map<const std::string, const std::string> enemies = {
-    {"cp_B000", "Zombie Male"},
+static const std::map<const std::string, const std::string> characterMap = {
+    {"cp_A000", "Leon"},
+    {"cp_A100", "Grace"},
+
     {"cp_B001", "Zombie Female"},
     {"cp_B002", "Chef"},
     {"cp_B003", "The Singer"},
@@ -45,4 +47,4 @@ static const std::map<const std::string, const std::string> enemies = {
     {"cp_D110", "Victor Gideon (Mutated)"},
 };
 
-#endif // SRTPLUGINRE9_ENEMYIDS_H
+#endif // SRTPLUGINRE9_CHARACTERMAP_H

@@ -60,10 +60,6 @@ namespace SRTPluginRE9::Hook
 		float vertical;
 
 		ImGuiTextFilter debugLoggerFilter;
-		bool debugLoggerOpen = false; // g_SRTSettings
-		bool overlayOpen = true;
-		bool mainUIOpen = true;
-		bool aboutUIOpen = false;
 
 		const char *logoPositions[4]{"Upper Left", "Upper Right", "Lower Left", "Lower Right"};
 		const char *colorPresets[5]{"Blue", "Red", "Green", "White", "Gray"};

@@ -15,10 +15,14 @@ struct SRTSettings
 {
 	int32_t LogoPosition = 0; // Top-left
 	float LogoOpacity = .2f;
+	uint32_t MainUIOpened = 1U; // true
 	float MainOpacity = .85f;
+	uint32_t AboutUIOpened = 1U; // true
 	float AboutOpacity = .85f;
+	uint32_t LoggerUIOpened = 0U; // false
 	float LoggerOpacity = .85f;
 	uint32_t LoggerAutoScroll = 1U; // true
+	uint32_t OverlayUIOpened = 1U;  // true
 	float OverlayOpacity = .6f;
 
 	uint32_t ShowCustomizationOptions = 1U; // true
@@ -28,6 +32,7 @@ struct SRTSettings
 	uint32_t EnemiesHideFullHP = 1U;          // true
 	uint32_t EnemyHPBarsVisible = 1U;         // true
 	uint32_t EnemyHPBarsShowPercent = 0U;     // false
+	uint32_t EnemiesShowNotSpawned = 0U;      // false
 	float EnemyHPBarsWidth = 150.f;
 	float EnemyHPBarsHeight = 5.f;
 	int32_t EnemyHPBarForeColorIndex = 2; // green

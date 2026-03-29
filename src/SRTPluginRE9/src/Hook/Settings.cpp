@@ -53,16 +53,24 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 	}
 
 	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "MainUIOpened=", g_SRTSettings.MainUIOpened);
+	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "MainOpacity=", g_SRTSettings.MainOpacity);
 
 	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "AboutUIOpened=", g_SRTSettings.AboutUIOpened);
+	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "AboutOpacity=", g_SRTSettings.AboutOpacity);
 
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "LoggerUIOpened=", g_SRTSettings.LoggerUIOpened);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "LoggerOpacity=", g_SRTSettings.LoggerOpacity);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "LoggerAutoScroll=", g_SRTSettings.LoggerAutoScroll);
 
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "OverlayUIOpened=", g_SRTSettings.OverlayUIOpened);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "OverlayOpacity=", g_SRTSettings.OverlayOpacity);
 
@@ -80,6 +88,8 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 		readSuccess = TryReadSetting(inputStringView, "EnemyHPBarsVisible=", g_SRTSettings.EnemyHPBarsVisible);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "EnemyHPBarsShowPercent=", g_SRTSettings.EnemyHPBarsShowPercent);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "EnemiesShowNotSpawned=", g_SRTSettings.EnemiesShowNotSpawned);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "EnemyHPBarsWidth=", g_SRTSettings.EnemyHPBarsWidth);
 	if (!readSuccess)
@@ -104,13 +114,17 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 	out_buf->appendf("LogoPosition=%d\n", g_SRTSettings.LogoPosition);
 	out_buf->appendf("LogoOpacity=%f\n", g_SRTSettings.LogoOpacity);
 
+	out_buf->appendf("MainUIOpened=%d\n", g_SRTSettings.MainUIOpened);
 	out_buf->appendf("MainOpacity=%f\n", g_SRTSettings.MainOpacity);
 
+	out_buf->appendf("AboutUIOpened=%d\n", g_SRTSettings.AboutUIOpened);
 	out_buf->appendf("AboutOpacity=%f\n", g_SRTSettings.AboutOpacity);
 
+	out_buf->appendf("LoggerUIOpened=%d\n", g_SRTSettings.LoggerUIOpened);
 	out_buf->appendf("LoggerOpacity=%f\n", g_SRTSettings.LoggerOpacity);
 	out_buf->appendf("LoggerAutoScroll=%d\n", g_SRTSettings.LoggerAutoScroll);
 
+	out_buf->appendf("OverlayUIOpened=%d\n", g_SRTSettings.OverlayUIOpened);
 	out_buf->appendf("OverlayOpacity=%f\n", g_SRTSettings.OverlayOpacity);
 
 	out_buf->appendf("ShowCustomizationOptions=%d\n", g_SRTSettings.ShowCustomizationOptions);
@@ -120,6 +134,7 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 	out_buf->appendf("EnemiesHideFullHP=%d\n", g_SRTSettings.EnemiesHideFullHP);
 	out_buf->appendf("EnemyHPBarsVisible=%d\n", g_SRTSettings.EnemyHPBarsVisible);
 	out_buf->appendf("EnemyHPBarsShowPercent=%d\n", g_SRTSettings.EnemyHPBarsShowPercent);
+	out_buf->appendf("EnemiesShowNotSpawned=%d\n", g_SRTSettings.EnemiesShowNotSpawned);
 	out_buf->appendf("EnemyHPBarsWidth=%f\n", g_SRTSettings.EnemyHPBarsWidth);
 	out_buf->appendf("EnemyHPBarsHeight=%f\n", g_SRTSettings.EnemyHPBarsHeight);
 	out_buf->appendf("EnemyHPBarForeColorIndex=%d\n", g_SRTSettings.EnemyHPBarForeColorIndex);

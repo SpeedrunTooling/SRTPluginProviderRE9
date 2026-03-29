@@ -1,7 +1,7 @@
 #include "UI.h"
+#include "CharacterMap.h"
 #include "CompositeOrderer.h"
 #include "DX12Hook.h"
-#include "EnemyIds.h"
 #include "GameObjects.h"
 #include "Globals.h"
 #include "Protected_Ptr.h"
@@ -40,10 +40,10 @@ namespace SRTPluginRE9::Hook
 		DrawLogoOverlay();
 		DrawMain();
 
-		if (debugLoggerOpen)
+		if (g_SRTSettings.LoggerUIOpened)
 			DrawDebugLogger();
 
-		if (overlayOpen)
+		if (g_SRTSettings.OverlayUIOpened)
 			DrawDebugOverlay();
 	}
 
@@ -75,29 +75,29 @@ namespace SRTPluginRE9::Hook
 
 	void STDMETHODCALLTYPE UI::ToggleUI()
 	{
-		mainUIOpen = !mainUIOpen;
+		g_SRTSettings.MainUIOpened = !g_SRTSettings.MainUIOpened;
 	}
 
 	void STDMETHODCALLTYPE UI::DrawMain()
 	{
 		ImGuiIO &imguiIO = ImGui::GetIO();
-		imguiIO.MouseDrawCursor = mainUIOpen;
+		imguiIO.MouseDrawCursor = g_SRTSettings.MainUIOpened;
 
 		// If the Main UI is hidden, exit here.
-		if (!mainUIOpen)
+		if (!g_SRTSettings.MainUIOpened)
 			return;
 
 		// Conditionally shown items (shown only if the Main UI is showing)
-		if (aboutUIOpen)
+		if (g_SRTSettings.AboutUIOpened)
 			DrawAbout();
 
-		ImGui::SetNextWindowPos(ImVec2(imguiIO.DisplaySize.x / 4, imguiIO.DisplaySize.y / 4), ImGuiCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(400, 260), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(imguiIO.DisplaySize.x / 16, imguiIO.DisplaySize.y / 16), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(640, 480), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.MainOpacity);
 
 		// "Display Title###Unique Window ID"
 		static const std::string mainWindowTitle = std::format("{} - v{}###SRTMain", SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer);
-		if (!ImGui::Begin(mainWindowTitle.c_str(), (bool *)&mainUIOpen, ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoCollapse))
+		if (!ImGui::Begin(mainWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.MainUIOpened), ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoCollapse))
 		{
 			ImGui::End();
 			return;
@@ -118,14 +118,14 @@ namespace SRTPluginRE9::Hook
 
 			if (ImGui::BeginMenu("View"))
 			{
-				ImGui::MenuItem("Log", NULL, &debugLoggerOpen);
-				ImGui::MenuItem("Debug Overlay", NULL, &overlayOpen);
+				ImGui::MenuItem("Log", NULL, reinterpret_cast<bool *>(&g_SRTSettings.LoggerUIOpened));
+				ImGui::MenuItem("Debug Overlay", NULL, reinterpret_cast<bool *>(&g_SRTSettings.OverlayUIOpened));
 				ImGui::EndMenu();
 			}
 
 			if (ImGui::BeginMenu("Help"))
 			{
-				ImGui::MenuItem("About", NULL, &aboutUIOpen);
+				ImGui::MenuItem("About", NULL, reinterpret_cast<bool *>(&g_SRTSettings.AboutUIOpened));
 				ImGui::EndMenu();
 			}
 			ImGui::EndMenuBar();
@@ -198,11 +198,11 @@ namespace SRTPluginRE9::Hook
 	{
 		// Specify a default position/size in case there's no data in the .ini file.
 		ImGuiIO &io = ImGui::GetIO();
-		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4, io.DisplaySize.y / 4), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x / 4, io.DisplaySize.y / 16), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.AboutOpacity);
 
 		static const std::string aboutWindowTitle = std::format("{}: About###SRTAbout", SRTPluginRE9::ToolNameShort);
-		if (!ImGui::Begin(aboutWindowTitle.c_str(), (bool *)&aboutUIOpen, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize))
+		if (!ImGui::Begin(aboutWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.AboutUIOpened), ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize))
 		{
 			ImGui::End();
 			return;
@@ -288,19 +288,19 @@ namespace SRTPluginRE9::Hook
 		};
 
 		// Don't continue if we're not open.
-		if (!debugLoggerOpen)
+		if (!g_SRTSettings.LoggerUIOpened)
 			return;
 
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_None;
-		if (!mainUIOpen)
+		if (!g_SRTSettings.MainUIOpened)
 			window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
 
-		ImGui::SetNextWindowPos(ImVec2(250, 10), ImGuiCond_FirstUseEver);
-		ImGui::SetNextWindowSize(ImVec2(880, 440), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.LoggerOpacity);
 
 		static const std::string debugLoggerWindowTitle = std::format("{} Log Viewer###SRTDebugLogger", SRTPluginRE9::ToolNameShort);
-		if (!ImGui::Begin(debugLoggerWindowTitle.c_str(), &debugLoggerOpen, window_flags))
+		if (!ImGui::Begin(debugLoggerWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.LoggerUIOpened), window_flags))
 		{
 			ImGui::End();
 			return;
@@ -380,14 +380,14 @@ namespace SRTPluginRE9::Hook
 	void STDMETHODCALLTYPE UI::DrawDebugOverlay()
 	{
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
-		if (!mainUIOpen)
+		if (!g_SRTSettings.MainUIOpened)
 			window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
-		ImGui::SetNextWindowPos(ImVec2(8, 145), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowSize(ImVec2(240, 340), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.OverlayOpacity);
 
 		static const std::string debugOverlayWindowTitle = std::format("{} Debug Overlay###SRTDebugOverlay", SRTPluginRE9::ToolNameShort);
-		if (ImGui::Begin(debugOverlayWindowTitle.c_str(), &overlayOpen, window_flags))
+		if (ImGui::Begin(debugOverlayWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.OverlayUIOpened), window_flags))
 		{
 			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
 			const auto &localGameData = g_GameDataBuffers[readIndex].Data;
@@ -396,9 +396,11 @@ namespace SRTPluginRE9::Hook
 			ImGui::Text("Rank: %" PRIi32, localGameData.DARank);
 			ImGui::Text("Points: %" PRIi32, localGameData.DAScore);
 
-			// Player HP
-			ImGui::Text("Player: %" PRIi32 " / %" PRIi32, localGameData.Player.HP.CurrentHP, localGameData.Player.HP.MaximumHP);
-			ImGui::Text("X: %.2f Y: %.2f Z: %.2f", localGameData.Player.Position.X, localGameData.Player.Position.Y, localGameData.Player.Position.Z);
+			// Player Info
+			auto playerName = characterMap.contains(localGameData.Player.KindID) ? characterMap.at(localGameData.Player.KindID) : localGameData.Player.KindID;
+			ImGui::Text("%s: %" PRIi32 " / %" PRIi32, playerName.c_str(), localGameData.Player.HP.CurrentHP, localGameData.Player.HP.MaximumHP);
+			auto distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f})", localGameData.Player.Position.X, localGameData.Player.Position.Y, localGameData.Player.Position.Z);
+			ImGui::Text(distanceString.c_str());
 			ImGui::Separator();
 
 			// Enemies
@@ -410,13 +412,12 @@ namespace SRTPluginRE9::Hook
 				if (enemyData.HP.CurrentHP >= 1'000'000 || (g_SRTSettings.EnemiesHideFullHP && enemyData.HP.CurrentHP == enemyData.HP.MaximumHP))
 					continue;
 
-				auto enemyName = enemies.contains(enemyData.KindID) ? enemies.at(enemyData.KindID) : enemyData.KindID;
+				auto enemyName = characterMap.contains(enemyData.KindID) ? characterMap.at(enemyData.KindID) : enemyData.KindID;
 				if (enemyData.HP.CurrentHP != enemyData.HP.MaximumHP)
 					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesInjuredTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 				else
 					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 
-				std::string distanceString;
 				if (enemyData.IsSpawned)
 					distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f}) -> Dist: {:6.2f}", enemyData.Position.X, enemyData.Position.Y, enemyData.Position.Z, enemyData.Distance);
 				else
