@@ -424,10 +424,10 @@ namespace SRTPluginRE9::Hook
 					else
 						ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 
-					if (enemyData.IsSpawned)
-						distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f}) -> Dist: {:6.2f}", enemyData.Position.X, enemyData.Position.Y, enemyData.Position.Z, enemyData.Distance);
-					else
-						distanceString = "Not Spawned In";
+					// if (enemyData.IsSpawned)
+					// 	distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f}) -> Dist: {:6.2f}", enemyData.Position.X, enemyData.Position.Y, enemyData.Position.Z, enemyData.Distance);
+					// else
+					// 	distanceString = "Not Spawned In";
 
 					ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), distanceString.c_str());
 
