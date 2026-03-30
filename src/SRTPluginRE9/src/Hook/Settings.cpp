@@ -107,6 +107,10 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 		readSuccess = TryReadSetting(inputStringView, "DPIScalingFactor=", g_SRTSettings.DPIScalingFactor);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "FontScalingFactor=", g_SRTSettings.FontScalingFactor);
+
+	// Debug settings, not shown in UI.
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "DebugEnemiesShowPosition=", g_SRTSettings.DebugEnemiesShowPosition);
 }
 
 static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, ImGuiTextBuffer *out_buf)
@@ -146,4 +150,7 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 
 	out_buf->appendf("DPIScalingFactor=%f\n", g_SRTSettings.DPIScalingFactor);
 	out_buf->appendf("FontScalingFactor=%f\n", g_SRTSettings.FontScalingFactor);
+
+	// Debug settings, not shown in UI.
+	out_buf->appendf("DebugEnemiesShowPosition=%d\n", g_SRTSettings.DebugEnemiesShowPosition);
 }

@@ -42,6 +42,9 @@ struct SRTSettings
 
 	float_t DPIScalingFactor = 0.f;
 	float_t FontScalingFactor = 0.f;
+
+	// Debug settings, not shown in UI.
+	uint32_t DebugEnemiesShowPosition = 0U; // false
 };
 
 template <typename TSettingType>
