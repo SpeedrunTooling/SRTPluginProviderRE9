@@ -41,11 +41,11 @@ namespace SRTPluginRE9::Hook
 		explicit UI();
 		void STDMETHODCALLTYPE DrawUI();
 		void STDMETHODCALLTYPE ToggleUI();
+		static void STDMETHODCALLTYPE RescaleDPI();
+		static void STDMETHODCALLTYPE RescaleFont();
 		void STDMETHODCALLTYPE GameWindowResized();
 
 	private:
-		void STDMETHODCALLTYPE RescaleDPI();
-		void STDMETHODCALLTYPE RescaleFont();
 		void STDMETHODCALLTYPE BadPointerReport(std::atomic<uint32_t> &, const std::function<bool(void)> &, const std::function<void(void)> &);
 
 		void STDMETHODCALLTYPE DrawMain();

@@ -11,12 +11,13 @@
 #include "Settings.h"
 #include "Thread.h"
 #include "UI.h"
-#include "imgui_impl_win32.h"
 #include <MinHook.h>
 #include <algorithm>
+#include <cfloat>
 #include <cinttypes>
 #include <functional>
 #include <imgui_impl_dx12.h>
+#include <imgui_impl_win32.h>
 #include <mutex>
 #include <optional>
 #include <ranges>
@@ -227,20 +228,11 @@ namespace SRTPluginRE9::Hook
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 		RegisterSRTSettingsHandler();
-		ImGui::StyleColorsDark();
 
 		ImGuiIO &io = ImGui::GetIO();
 		io.ConfigFlags = ImGuiConfigFlags_NoMouseCursorChange | ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
 		io.IniFilename = "SRTRE9_ImGui.ini";
 		io.LogFilename = "SRTRE9_ImGui.log";
-
-		// Setup scaling
-		ImGuiStyle &style = ImGui::GetStyle();
-		auto mainScale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
-		style.ScaleAllSizes(mainScale);
-		style.FontScaleDpi = mainScale;
-		style.FontSizeBase = 16.0f;
-		io.Fonts->AddFontDefaultVector();
 
 		ImGui_ImplWin32_Init(hookState.gameWindow);
 
@@ -250,6 +242,8 @@ namespace SRTPluginRE9::Hook
 		// Create the SRT UI class which will allocate a texture on the heap, which should happen here.
 		srtUI = std::make_unique<SRTPluginRE9::Hook::UI>();
 		logger->SetUIPtr(srtUI.get());
+		io.Fonts->Clear();
+		io.Fonts->AddFontDefaultVector();
 
 		logger->LogMessage("initImGuiOverlay() - completed successfully.\n");
 
@@ -357,6 +351,9 @@ namespace SRTPluginRE9::Hook
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
+
+		if (firstRun)
+			UI::RescaleDPI();
 
 		srtUI->DrawUI();
 
@@ -714,6 +711,7 @@ namespace SRTPluginRE9::Hook
 				                                              auto hitPointData = protectedEnemyContext.follow(&EnemyContext::HitPoint).follow(&HitPoint::HitPointData);
 															  auto enemyFormationMemberInfo = protectedEnemyContext.follow(&EnemyContext::FormationMemberInfo);
 															  auto enemyPosition = enemyFormationMemberInfo.read(&EnemyFormationMemberInfo::Position);
+															  auto enemySpawned = static_cast<bool>(enemyFormationMemberInfo);
 				                                              return EnemyData
 				                                              {
 				                                              	.KindID = kindString->GetString(),
@@ -724,8 +722,8 @@ namespace SRTPluginRE9::Hook
 				                                              		.IsSetup = hitPointData.read(&CharacterHitPointData::_IsSetuped) != 0
 				                                              	},
 				                                              	.Position = enemyPosition,
-																.Distance = localGameData.Data.Player.Position.EuclideanDistance(enemyPosition),
-																.IsSpawned = static_cast<bool>(enemyFormationMemberInfo)
+																.Distance = enemySpawned ? localGameData.Data.Player.Position.EuclideanDistance(enemyPosition) : FLT_MAX,
+																.IsSpawned = enemySpawned
 				                                              }; }) |
 			                                  std::ranges::to<std::vector>();
 
@@ -735,9 +733,15 @@ namespace SRTPluginRE9::Hook
 
 			localGameData.FilteredEnemiesBacking = localGameData.AllEnemiesBacking |
 			                                       std::views::filter([](const EnemyData &enemyData)
-			                                                          { return enemyData.HP.MaximumHP >= 2 && enemyData.HP.CurrentHP != 0 && (g_SRTSettings.EnemiesShowNotSpawned || (enemyData.IsSpawned && enemyData.Distance <= g_SRTSettings.EnemiesMaxDistance)); }) |
+			                                                          { return enemyData.HP.CurrentHP != 0 && (g_SRTSettings.EnemiesShowNotSpawned || (enemyData.IsSpawned && enemyData.Distance <= g_SRTSettings.EnemiesMaxDistance)); }) |
 			                                       std::ranges::to<std::vector>();
 
+			// constexpr auto compare = OrderBy([](const EnemyData &enemyData)
+			//                                  { return enemyData.Distance; })
+			//                              .ThenByDescending([](const EnemyData &enemyData)
+			//                                                { return enemyData.HP.CurrentHP < enemyData.HP.MaximumHP; })
+			//                              .ThenByDescending([](const EnemyData &enemyData)
+			//                                                { return enemyData.HP.MaximumHP; });
 			constexpr auto compare = OrderByDescending([](const EnemyData &enemyData)
 			                                           { return enemyData.HP.CurrentHP < enemyData.HP.MaximumHP; })
 			                             .ThenByDescending([](const EnemyData &enemyData)

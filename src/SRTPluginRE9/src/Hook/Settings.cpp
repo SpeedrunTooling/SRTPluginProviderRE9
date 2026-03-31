@@ -110,6 +110,8 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 
 	// Debug settings, not shown in UI.
 	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "DebugEnable=", g_SRTSettings.DebugEnable);
+	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "DebugEnemiesShowPosition=", g_SRTSettings.DebugEnemiesShowPosition);
 }
 
@@ -152,5 +154,6 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 	out_buf->appendf("FontScalingFactor=%f\n", g_SRTSettings.FontScalingFactor);
 
 	// Debug settings, not shown in UI.
+	out_buf->appendf("DebugEnable=%d\n", g_SRTSettings.DebugEnable);
 	out_buf->appendf("DebugEnemiesShowPosition=%d\n", g_SRTSettings.DebugEnemiesShowPosition);
 }

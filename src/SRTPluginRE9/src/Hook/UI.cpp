@@ -5,11 +5,11 @@
 #include "GameObjects.h"
 #include "Globals.h"
 #include "Protected_Ptr.h"
-#include "imgui.h"
-#include "imgui_impl_win32.h"
 #include <algorithm>
 #include <cinttypes>
 #include <functional>
+#include <imgui.h>
+#include <imgui_impl_win32.h>
 #include <mutex>
 #include <optional>
 #include <ranges>
@@ -19,20 +19,6 @@ namespace SRTPluginRE9::Hook
 	UI::UI()
 	{
 		GameWindowResized();
-	}
-
-	void STDMETHODCALLTYPE UI::RescaleDPI()
-	{
-		ImGuiStyle &style = ImGui::GetStyle() = ImGuiStyle(); // Reset style.
-		ImGui::StyleColorsDark();                             // Set color mode again.
-		style.ScaleAllSizes(g_SRTSettings.DPIScalingFactor);  // Set scaling.
-		style.FontScaleDpi = g_SRTSettings.FontScalingFactor; // Set font DPI which is not set by the prior method call.
-	}
-
-	void STDMETHODCALLTYPE UI::RescaleFont()
-	{
-		ImGuiStyle &style = ImGui::GetStyle();                // Reset style.
-		style.FontScaleDpi = g_SRTSettings.FontScalingFactor; // Set font DPI .
 	}
 
 	void STDMETHODCALLTYPE UI::DrawUI()
@@ -108,6 +94,7 @@ namespace SRTPluginRE9::Hook
 		{
 			if (ImGui::BeginMenu("File"))
 			{
+				ImGui::MenuItem("Enable Debug Mode", NULL, reinterpret_cast<bool *>(&g_SRTSettings.DebugEnable));
 				if (ImGui::MenuItem("Exit", NULL, false, true))
 				{
 					// Close the SRT.
@@ -119,7 +106,7 @@ namespace SRTPluginRE9::Hook
 			if (ImGui::BeginMenu("View"))
 			{
 				ImGui::MenuItem("Log", NULL, reinterpret_cast<bool *>(&g_SRTSettings.LoggerUIOpened));
-				ImGui::MenuItem("Debug Overlay", NULL, reinterpret_cast<bool *>(&g_SRTSettings.OverlayUIOpened));
+				ImGui::MenuItem("Overlay", NULL, reinterpret_cast<bool *>(&g_SRTSettings.OverlayUIOpened));
 				ImGui::EndMenu();
 			}
 
@@ -189,6 +176,9 @@ namespace SRTPluginRE9::Hook
 			}
 			ImGui::SliderFloat("Enemy distance filter", &g_SRTSettings.EnemiesMaxDistance, 1.f, 250.f, "%5.1f");
 			ImGui::Checkbox("Show non-spawned enemies", reinterpret_cast<bool *>(&g_SRTSettings.EnemiesShowNotSpawned));
+
+			if (g_SRTSettings.DebugEnable)
+				ImGui::Checkbox("Show enemy position and distance", reinterpret_cast<bool *>(&g_SRTSettings.DebugEnemiesShowPosition));
 		}
 
 		ImGui::End();
@@ -415,7 +405,7 @@ namespace SRTPluginRE9::Hook
 
 				for (const auto &enemyData : std::span(static_cast<EnemyData *>(localGameData.FilteredEnemies.Values), localGameData.FilteredEnemies.Size) | std::views::take(g_SRTSettings.EnemiesShownLimit))
 				{
-					if (enemyData.HP.CurrentHP >= 1'000'000 || (g_SRTSettings.EnemiesHideFullHP && enemyData.HP.CurrentHP == enemyData.HP.MaximumHP))
+					if (g_SRTSettings.EnemiesHideFullHP && enemyData.HP.CurrentHP == enemyData.HP.MaximumHP)
 						continue;
 
 					auto enemyName = characterMap.contains(enemyData.KindID) ? characterMap.at(enemyData.KindID) : enemyData.KindID;
@@ -424,7 +414,7 @@ namespace SRTPluginRE9::Hook
 					else
 						ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 
-					if (g_SRTSettings.DebugEnemiesShowPosition)
+					if (g_SRTSettings.DebugEnable && g_SRTSettings.DebugEnemiesShowPosition)
 					{
 						if (enemyData.IsSpawned)
 						{
@@ -543,6 +533,27 @@ namespace SRTPluginRE9::Hook
 		return ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
 	}
 
+	void STDMETHODCALLTYPE UI::RescaleDPI()
+	{
+		if (g_SRTSettings.DPIScalingFactor == 0.f)
+			g_SRTSettings.DPIScalingFactor = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
+
+		ImGuiStyle &style = ImGui::GetStyle() = ImGuiStyle(); // Reset style.
+		ImGui::StyleColorsDark();                             // Set color mode again.
+		style.ScaleAllSizes(g_SRTSettings.DPIScalingFactor);  // Set scaling.
+		UI::RescaleFont();                                    // Set font size and DPI which is not set by the prior method call.
+	}
+
+	void STDMETHODCALLTYPE UI::RescaleFont()
+	{
+		if (g_SRTSettings.FontScalingFactor == 0.f)
+			g_SRTSettings.FontScalingFactor = g_SRTSettings.DPIScalingFactor;
+
+		ImGuiStyle &style = ImGui::GetStyle();                // Reset style.
+		style.FontSizeBase = 14.0f;                           // Set a default font size.
+		style.FontScaleDpi = g_SRTSettings.FontScalingFactor; // Set font DPI.
+	}
+
 	void STDMETHODCALLTYPE UI::GameWindowResized()
 	{
 		RECT gameWindowSize;
@@ -550,10 +561,6 @@ namespace SRTPluginRE9::Hook
 		horizontal = static_cast<float>(gameWindowSize.right);
 		vertical = static_cast<float>(gameWindowSize.bottom);
 
-		if (g_SRTSettings.DPIScalingFactor == 0.f)
-			g_SRTSettings.DPIScalingFactor = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
-		if (g_SRTSettings.FontScalingFactor == 0.f)
-			g_SRTSettings.FontScalingFactor = g_SRTSettings.DPIScalingFactor;
 		UI::RescaleDPI();
 	}
 }

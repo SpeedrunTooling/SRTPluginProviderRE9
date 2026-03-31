@@ -7,6 +7,7 @@
 static const std::map<const std::string, const std::string> characterMap = {
     {"cp_A000", "Leon"},
     {"cp_A100", "Grace"},
+    {"cp_A110", "Grace"}, // Grace (Flashback)
     {"cp_A200", "Chloe"},
 
     {"cp_B000", "Zombie Male"},

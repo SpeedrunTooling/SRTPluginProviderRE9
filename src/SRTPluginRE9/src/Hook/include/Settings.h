@@ -40,11 +40,12 @@ struct SRTSettings
 	int32_t EnemyHPBarBackColorIndex = 4; // grey
 	uint32_t DarkenBarColors = 1U;        // true
 
-	float_t DPIScalingFactor = 0.f;
-	float_t FontScalingFactor = 0.f;
+	float_t DPIScalingFactor = 0.f;  // Default to 0 so automatic calculation occurs. See UI.cpp.
+	float_t FontScalingFactor = 0.f; // Default to 0 so automatic calculation occurs. See UI.cpp.
 
 	// Debug settings, not shown in UI.
-	uint32_t DebugEnemiesShowPosition = 0U; // false
+	uint32_t DebugEnable = 0U;              // Enables debug mode. Shows debug options in the settings. Default: false.
+	uint32_t DebugEnemiesShowPosition = 0U; // Debug option to show enemy position and distance from player. Default: false.
 };
 
 template <typename TSettingType>
