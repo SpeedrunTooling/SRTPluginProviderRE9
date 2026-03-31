@@ -19,11 +19,21 @@ struct SRTSettings
 	float_t MainOpacity = .85f;
 	uint32_t AboutUIOpened = 1U; // true
 	float_t AboutOpacity = .85f;
-	uint32_t LoggerUIOpened = 0U; // false
-	float_t LoggerOpacity = .85f;
-	uint32_t LoggerAutoScroll = 1U; // true
-	uint32_t OverlayUIOpened = 1U;  // true
-	float_t OverlayOpacity = .6f;
+	uint32_t LogViewerOpened = 0U; // false
+	float_t LogViewerOpacity = .85f;
+	uint32_t LogViewerAutoScroll = 1U; // true
+
+	uint32_t OverlayGameInfoUIOpened = 1U; // true
+	float_t OverlayGameInfoOpacity = .6f;
+
+	uint32_t OverlayPlayerUIOpened = 1U; // true
+	float_t OverlayPlayerOpacity = .6f;
+
+	uint32_t OverlayInventoryUIOpened = 1U; // true
+	float_t OverlayInventoryOpacity = .6f;
+
+	uint32_t OverlayEnemiesUIOpened = 1U; // true
+	float_t OverlayEnemiesOpacity = .6f;
 
 	uint32_t ShowCustomizationOptions = 1U; // true
 	int32_t EnemiesShownLimit = 12;
@@ -32,7 +42,6 @@ struct SRTSettings
 	uint32_t EnemiesHideFullHP = 1U;          // true
 	uint32_t EnemyHPBarsVisible = 1U;         // true
 	uint32_t EnemyHPBarsShowPercent = 0U;     // false
-	uint32_t EnemiesShowNotSpawned = 0U;      // false
 	float_t EnemiesMaxDistance = 50.f;
 	float_t EnemyHPBarsWidth = 150.f;
 	float_t EnemyHPBarsHeight = 5.f;
@@ -44,8 +53,9 @@ struct SRTSettings
 	float_t FontScalingFactor = 0.f; // Default to 0 so automatic calculation occurs. See UI.cpp.
 
 	// Debug settings, not shown in UI.
-	uint32_t DebugEnable = 0U;              // Enables debug mode. Shows debug options in the settings. Default: false.
-	uint32_t DebugEnemiesShowPosition = 0U; // Debug option to show enemy position and distance from player. Default: false.
+	uint32_t DebugEnable = 0U;                // Enables debug mode. Shows debug options in the settings. Default: false.
+	uint32_t DebugEnemiesShowNotSpawned = 0U; // Debug option to show enemies that haven't spawned yet but are in the enemies array. Default: false.
+	uint32_t DebugEnemiesShowPosition = 0U;   // Debug option to show enemy position and distance from player. Default: false.
 };
 
 template <typename TSettingType>

@@ -38,16 +38,16 @@ namespace SRTPluginRE9::Logger
 
 	void Logger::LogMessageUI(const char *fmt, ...) IM_FMTARGS(2)
 	{
-		if (loggerUIData)
+		if (logViewerData)
 		{
-			int old_size = loggerUIData->Buffer.size();
+			int old_size = logViewerData->Buffer.size();
 			va_list args;
 			va_start(args, fmt);
-			loggerUIData->Buffer.appendfv(fmt, args);
+			logViewerData->Buffer.appendfv(fmt, args);
 			va_end(args);
-			for (const int new_size = loggerUIData->Buffer.size(); old_size < new_size; old_size++)
-				if (loggerUIData->Buffer[old_size] == '\n')
-					loggerUIData->LineOffsets.push_back(old_size + 1);
+			for (const int new_size = logViewerData->Buffer.size(); old_size < new_size; old_size++)
+				if (logViewerData->Buffer[old_size] == '\n')
+					logViewerData->LineOffsets.push_back(old_size + 1);
 		}
 	}
 }

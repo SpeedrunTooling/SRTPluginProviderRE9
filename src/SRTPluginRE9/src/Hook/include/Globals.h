@@ -172,7 +172,7 @@ extern HMODULE g_dllModule;
 extern HANDLE g_mainThread;
 extern FILE *g_logFile;
 extern SRTPluginRE9::Logger::Logger *logger;
-extern SRTPluginRE9::Logger::LoggerUIData *g_LoggerUIData;
+extern SRTPluginRE9::Logger::LogViewerData *g_LogViewerData;
 extern std::optional<std::uintptr_t> g_BaseAddress;
 extern std::atomic<bool> g_shutdownRequested;
 extern std::mutex g_LogMutex;

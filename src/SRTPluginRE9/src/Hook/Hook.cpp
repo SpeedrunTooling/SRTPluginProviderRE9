@@ -733,7 +733,7 @@ namespace SRTPluginRE9::Hook
 
 			localGameData.FilteredEnemiesBacking = localGameData.AllEnemiesBacking |
 			                                       std::views::filter([](const EnemyData &enemyData)
-			                                                          { return enemyData.HP.CurrentHP != 0 && (g_SRTSettings.EnemiesShowNotSpawned || (enemyData.IsSpawned && enemyData.Distance <= g_SRTSettings.EnemiesMaxDistance)); }) |
+			                                                          { return enemyData.HP.CurrentHP != 0 && (g_SRTSettings.DebugEnemiesShowNotSpawned || (enemyData.IsSpawned && enemyData.Distance <= g_SRTSettings.EnemiesMaxDistance)); }) |
 			                                       std::ranges::to<std::vector>();
 
 			// constexpr auto compare = OrderBy([](const EnemyData &enemyData)

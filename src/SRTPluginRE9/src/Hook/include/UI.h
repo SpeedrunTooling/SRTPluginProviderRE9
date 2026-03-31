@@ -50,8 +50,13 @@ namespace SRTPluginRE9::Hook
 
 		void STDMETHODCALLTYPE DrawMain();
 		void STDMETHODCALLTYPE DrawAbout();
-		void STDMETHODCALLTYPE DrawDebugLogger();
-		void STDMETHODCALLTYPE DrawDebugOverlay();
+		void STDMETHODCALLTYPE DrawLogViewer();
+
+		void STDMETHODCALLTYPE DrawOverlayGameInfo();  // Game info such as DA, IGT, etc.
+		void STDMETHODCALLTYPE DrawOverlayPlayer();    // Player info such as HP, Credits, Position, etc.
+		void STDMETHODCALLTYPE DrawOverlayInventory(); // Player inventory.
+		void STDMETHODCALLTYPE DrawOverlayEnemies();   // Enemies list.
+
 		void STDMETHODCALLTYPE DrawLogoOverlay();
 		void STDMETHODCALLTYPE RenderHPBar(int32_t currentHP, int32_t maximumHP);
 		ImVec4 STDMETHODCALLTYPE ColorFromPreset(int32_t preset);
@@ -59,7 +64,7 @@ namespace SRTPluginRE9::Hook
 		float horizontal;
 		float vertical;
 
-		ImGuiTextFilter debugLoggerFilter;
+		ImGuiTextFilter logViewerFilter;
 
 		const char *logoPositions[4]{"Upper Left", "Upper Right", "Lower Left", "Lower Right"};
 		const char *colorPresets[5]{"Blue", "Red", "Green", "White", "Gray"};

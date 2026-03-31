@@ -9,25 +9,25 @@
 
 namespace SRTPluginRE9::Logger
 {
-	struct LoggerUIData
+	struct LogViewerData
 	{
 		ImGuiTextBuffer Buffer;
 		ImVector<int> LineOffsets;
-		LoggerUIData() { LineOffsets.push_back(0); }
+		LogViewerData() { LineOffsets.push_back(0); }
 	};
 
 	class Logger
 	{
 		FILE *out;
-		LoggerUIData *loggerUIData;
+		LogViewerData *logViewerData;
 		SRTPluginRE9::Hook::UI *srtUI;
 
 	public:
-		explicit Logger(FILE *out, LoggerUIData *loggerUIData) : out(out), loggerUIData(loggerUIData) {}
+		explicit Logger(FILE *out, LogViewerData *logViewerData) : out(out), logViewerData(logViewerData) {}
 		~Logger()
 		{
 			out = nullptr;
-			loggerUIData = nullptr;
+			logViewerData = nullptr;
 			srtUI = nullptr;
 		}
 

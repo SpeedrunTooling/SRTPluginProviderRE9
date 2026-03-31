@@ -25,12 +25,11 @@ namespace SRTPluginRE9::Hook
 	{
 		DrawLogoOverlay();
 		DrawMain();
-
-		if (g_SRTSettings.LoggerUIOpened)
-			DrawDebugLogger();
-
-		if (g_SRTSettings.OverlayUIOpened)
-			DrawDebugOverlay();
+		DrawOverlayGameInfo();
+		DrawOverlayPlayer();
+		DrawOverlayInventory();
+		DrawOverlayEnemies();
+		DrawLogViewer();
 	}
 
 	void STDMETHODCALLTYPE UI::BadPointerReport(std::atomic<uint32_t> &ato, const std::function<bool(void)> &predicate, const std::function<void(void)> &function)
@@ -105,8 +104,15 @@ namespace SRTPluginRE9::Hook
 
 			if (ImGui::BeginMenu("View"))
 			{
-				ImGui::MenuItem("Log", NULL, reinterpret_cast<bool *>(&g_SRTSettings.LoggerUIOpened));
-				ImGui::MenuItem("Overlay", NULL, reinterpret_cast<bool *>(&g_SRTSettings.OverlayUIOpened));
+				ImGui::MenuItem("Log Viewer", NULL, reinterpret_cast<bool *>(&g_SRTSettings.LogViewerOpened));
+				if (ImGui::BeginMenu("Overlays"))
+				{
+					ImGui::MenuItem("Game Info", NULL, reinterpret_cast<bool *>(&g_SRTSettings.OverlayGameInfoUIOpened));
+					ImGui::MenuItem("Player Info", NULL, reinterpret_cast<bool *>(&g_SRTSettings.OverlayPlayerUIOpened));
+					ImGui::MenuItem("Inventory", NULL, reinterpret_cast<bool *>(&g_SRTSettings.OverlayInventoryUIOpened));
+					ImGui::MenuItem("Enemies", NULL, reinterpret_cast<bool *>(&g_SRTSettings.OverlayEnemiesUIOpened));
+					ImGui::EndMenu();
+				}
 				ImGui::EndMenu();
 			}
 
@@ -129,8 +135,11 @@ namespace SRTPluginRE9::Hook
 		OpacitySlider("Logo Opacity", g_SRTSettings.LogoOpacity, 10.0f);
 		OpacitySlider("Main Opacity", g_SRTSettings.MainOpacity);
 		OpacitySlider("About Opacity", g_SRTSettings.AboutOpacity);
-		OpacitySlider("Logger Opacity", g_SRTSettings.LoggerOpacity);
-		OpacitySlider("Overlay Opacity", g_SRTSettings.OverlayOpacity);
+		OpacitySlider("Log Viewer Opacity", g_SRTSettings.LogViewerOpacity);
+		OpacitySlider("Overlay Game Info Opacity", g_SRTSettings.OverlayGameInfoOpacity);
+		OpacitySlider("Overlay Player Info Opacity", g_SRTSettings.OverlayPlayerOpacity);
+		OpacitySlider("Overlay Inventory Opacity", g_SRTSettings.OverlayInventoryOpacity);
+		OpacitySlider("Overlay Enemies Opacity", g_SRTSettings.OverlayEnemiesOpacity);
 
 		// Enemy Count Slider
 		ImGui::SliderInt("Limit Enemies Shown", &g_SRTSettings.EnemiesShownLimit, 1, 32, "%d");
@@ -175,10 +184,12 @@ namespace SRTPluginRE9::Hook
 				ImGui::Checkbox("Darken bar colors", reinterpret_cast<bool *>(&g_SRTSettings.DarkenBarColors));
 			}
 			ImGui::SliderFloat("Enemy distance filter", &g_SRTSettings.EnemiesMaxDistance, 1.f, 250.f, "%5.1f");
-			ImGui::Checkbox("Show non-spawned enemies", reinterpret_cast<bool *>(&g_SRTSettings.EnemiesShowNotSpawned));
 
 			if (g_SRTSettings.DebugEnable)
+			{
+				ImGui::Checkbox("Show non-spawned enemies", reinterpret_cast<bool *>(&g_SRTSettings.DebugEnemiesShowNotSpawned));
 				ImGui::Checkbox("Show enemy position and distance", reinterpret_cast<bool *>(&g_SRTSettings.DebugEnemiesShowPosition));
+			}
 		}
 
 		ImGui::End();
@@ -264,21 +275,21 @@ namespace SRTPluginRE9::Hook
 		ImGui::End();
 	}
 
-	void STDMETHODCALLTYPE UI::DrawDebugLogger()
+	void STDMETHODCALLTYPE UI::DrawLogViewer()
 	{
 		static auto clearFunc = [this]()
 		{
 			std::lock_guard<std::mutex> lock(g_LogMutex);
-			if (g_LoggerUIData)
+			if (g_LogViewerData)
 			{
-				g_LoggerUIData->Buffer.clear();
-				g_LoggerUIData->LineOffsets.clear();
-				g_LoggerUIData->LineOffsets.push_back(0);
+				g_LogViewerData->Buffer.clear();
+				g_LogViewerData->LineOffsets.clear();
+				g_LogViewerData->LineOffsets.push_back(0);
 			}
 		};
 
 		// Don't continue if we're not open.
-		if (!g_SRTSettings.LoggerUIOpened)
+		if (!g_SRTSettings.LogViewerOpened)
 			return;
 
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_None;
@@ -287,10 +298,10 @@ namespace SRTPluginRE9::Hook
 
 		ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
-		ImGui::SetNextWindowBgAlpha(g_SRTSettings.LoggerOpacity);
+		ImGui::SetNextWindowBgAlpha(g_SRTSettings.LogViewerOpacity);
 
-		static const std::string debugLoggerWindowTitle = std::format("{} Log Viewer###SRTDebugLogger", SRTPluginRE9::ToolNameShort);
-		if (!ImGui::Begin(debugLoggerWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.LoggerUIOpened), window_flags))
+		static const std::string logViewerWindowTitle = std::format("{} Log Viewer###SRTLogViewer", SRTPluginRE9::ToolNameShort);
+		if (!ImGui::Begin(logViewerWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.LogViewerOpened), window_flags))
 		{
 			ImGui::End();
 			return;
@@ -299,7 +310,7 @@ namespace SRTPluginRE9::Hook
 		// Options menu
 		if (ImGui::BeginPopup("Options"))
 		{
-			ImGui::Checkbox("Auto-scroll", reinterpret_cast<bool *>(&g_SRTSettings.LoggerAutoScroll));
+			ImGui::Checkbox("Auto-scroll", reinterpret_cast<bool *>(&g_SRTSettings.LogViewerAutoScroll));
 			ImGui::EndPopup();
 		}
 
@@ -311,16 +322,16 @@ namespace SRTPluginRE9::Hook
 		ImGui::SameLine();
 		const bool copy = ImGui::Button("Copy");
 		ImGui::SameLine();
-		debugLoggerFilter.Draw("Filter", -100.0f);
+		logViewerFilter.Draw("Filter", -100.0f);
 
 		ImGui::Separator();
 
 		if (ImGui::BeginChild("scrolling", ImVec2(0, 0), ImGuiChildFlags_None, ImGuiWindowFlags_HorizontalScrollbar))
 		{
-			SRTPluginRE9::Logger::LoggerUIData localLoggerUIData;
+			SRTPluginRE9::Logger::LogViewerData localLogViewerData;
 			{
 				std::lock_guard<std::mutex> lock(g_LogMutex);
-				localLoggerUIData = *g_LoggerUIData;
+				localLogViewerData = *g_LogViewerData;
 			}
 
 			if (clear)
@@ -329,28 +340,28 @@ namespace SRTPluginRE9::Hook
 				ImGui::LogToClipboard();
 
 			ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
-			const char *buf = localLoggerUIData.Buffer.begin();
-			const char *buf_end = localLoggerUIData.Buffer.end();
-			if (debugLoggerFilter.IsActive())
+			const char *buf = localLogViewerData.Buffer.begin();
+			const char *buf_end = localLogViewerData.Buffer.end();
+			if (logViewerFilter.IsActive())
 			{
-				for (int line_no = 0; line_no < localLoggerUIData.LineOffsets.Size; line_no++)
+				for (int line_no = 0; line_no < localLogViewerData.LineOffsets.Size; line_no++)
 				{
-					const char *line_start = buf + localLoggerUIData.LineOffsets[line_no];
-					const char *line_end = line_no + 1 < localLoggerUIData.LineOffsets.Size ? buf + localLoggerUIData.LineOffsets[line_no + 1] - 1 : buf_end;
-					if (debugLoggerFilter.PassFilter(line_start, line_end))
+					const char *line_start = buf + localLogViewerData.LineOffsets[line_no];
+					const char *line_end = line_no + 1 < localLogViewerData.LineOffsets.Size ? buf + localLogViewerData.LineOffsets[line_no + 1] - 1 : buf_end;
+					if (logViewerFilter.PassFilter(line_start, line_end))
 						ImGui::TextUnformatted(line_start, line_end);
 				}
 			}
 			else
 			{
 				ImGuiListClipper clipper;
-				clipper.Begin(localLoggerUIData.LineOffsets.Size);
+				clipper.Begin(localLogViewerData.LineOffsets.Size);
 				while (clipper.Step())
 				{
 					for (int line_no = clipper.DisplayStart; line_no < clipper.DisplayEnd; line_no++)
 					{
-						const char *line_start = buf + localLoggerUIData.LineOffsets[line_no];
-						const char *line_end = line_no + 1 < localLoggerUIData.LineOffsets.Size ? buf + localLoggerUIData.LineOffsets[line_no + 1] - 1 : buf_end;
+						const char *line_start = buf + localLogViewerData.LineOffsets[line_no];
+						const char *line_end = line_no + 1 < localLogViewerData.LineOffsets.Size ? buf + localLogViewerData.LineOffsets[line_no + 1] - 1 : buf_end;
 						ImGui::TextUnformatted(line_start, line_end);
 					}
 				}
@@ -360,24 +371,28 @@ namespace SRTPluginRE9::Hook
 
 			// Keep up at the bottom of the scroll region if we were already at the bottom at the beginning of the frame.
 			// Using a scrollbar or mouse-wheel will take away from the bottom edge.
-			if (g_SRTSettings.LoggerAutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
+			if (g_SRTSettings.LogViewerAutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY())
 				ImGui::SetScrollHereY(1.0f);
 		}
 		ImGui::EndChild();
 		ImGui::End();
 	}
 
-	void STDMETHODCALLTYPE UI::DrawDebugOverlay()
+	void STDMETHODCALLTYPE UI::DrawOverlayGameInfo()
 	{
+		// Don't continue if we're not open.
+		if (!g_SRTSettings.OverlayGameInfoUIOpened)
+			return;
+
 		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
 		if (!g_SRTSettings.MainUIOpened)
 			window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
 		ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
 		ImGui::SetNextWindowSize(ImVec2(240, 340), ImGuiCond_FirstUseEver);
-		ImGui::SetNextWindowBgAlpha(g_SRTSettings.OverlayOpacity);
+		ImGui::SetNextWindowBgAlpha(g_SRTSettings.OverlayGameInfoOpacity);
 
-		static const std::string debugOverlayWindowTitle = std::format("{} Debug Overlay###SRTDebugOverlay", SRTPluginRE9::ToolNameShort);
-		if (ImGui::Begin(debugOverlayWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.OverlayUIOpened), window_flags))
+		static const std::string overlayGameInfoWindowTitle = std::format("{} Game Info Overlay###SRTOverlayGameInfo", SRTPluginRE9::ToolNameShort);
+		if (ImGui::Begin(overlayGameInfoWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.OverlayGameInfoUIOpened), window_flags))
 		{
 			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
 			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
@@ -388,16 +403,104 @@ namespace SRTPluginRE9::Hook
 			{
 				const auto &localGameData = localBufferedGameData.Data;
 
-				// DA
 				ImGui::Text("Rank: %" PRIi32, localGameData.DARank);
 				ImGui::Text("Points: %" PRIi32, localGameData.DAScore);
+			}
+		}
+		ImGui::End();
+	}
 
-				// Player Info
+	void STDMETHODCALLTYPE UI::DrawOverlayPlayer()
+	{
+		// Don't continue if we're not open.
+		if (!g_SRTSettings.OverlayPlayerUIOpened)
+			return;
+
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+		if (!g_SRTSettings.MainUIOpened)
+			window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
+		ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(240, 340), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowBgAlpha(g_SRTSettings.OverlayPlayerOpacity);
+
+		static const std::string overlayPlayerWindowTitle = std::format("{} Player Overlay###SRTOverlayPlayer", SRTPluginRE9::ToolNameShort);
+		if (ImGui::Begin(overlayPlayerWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.OverlayPlayerUIOpened), window_flags))
+		{
+			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
+			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
+
+			if (!localBufferedGameData.HasData)
+				ImGui::Text("SRT is loading...");
+			else
+			{
+				const auto &localGameData = localBufferedGameData.Data;
+
 				auto playerName = characterMap.contains(localGameData.Player.KindID) ? characterMap.at(localGameData.Player.KindID) : localGameData.Player.KindID;
 				ImGui::Text("%s: %" PRIi32 " / %" PRIi32, playerName.c_str(), localGameData.Player.HP.CurrentHP, localGameData.Player.HP.MaximumHP);
-				auto distanceString = std::format("X/Y/Z: ({:6.2f}, {:6.2f}, {:6.2f})", localGameData.Player.Position.X, localGameData.Player.Position.Y, localGameData.Player.Position.Z);
-				ImGui::Text(distanceString.c_str());
-				ImGui::Separator();
+
+				ImGui::Text("X: %6.2f", localGameData.Player.Position.X);
+				ImGui::Text("Y: %6.2f", localGameData.Player.Position.Y);
+				ImGui::Text("Z: %6.2f", localGameData.Player.Position.Z);
+			}
+		}
+		ImGui::End();
+	}
+
+	void STDMETHODCALLTYPE UI::DrawOverlayInventory()
+	{
+		// Don't continue if we're not open.
+		if (!g_SRTSettings.OverlayInventoryUIOpened)
+			return;
+
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+		if (!g_SRTSettings.MainUIOpened)
+			window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
+		ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(240, 340), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowBgAlpha(g_SRTSettings.OverlayInventoryOpacity);
+
+		static const std::string overlayInventoryWindowTitle = std::format("{} Inventory Overlay###SRTOverlayInventory", SRTPluginRE9::ToolNameShort);
+		if (ImGui::Begin(overlayInventoryWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.OverlayInventoryUIOpened), window_flags))
+		{
+			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
+			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
+
+			if (!localBufferedGameData.HasData)
+				ImGui::Text("SRT is loading...");
+			else
+			{
+				// const auto &localGameData = localBufferedGameData.Data;
+
+				ImGui::Text("Placeholder!");
+			}
+		}
+		ImGui::End();
+	}
+
+	void STDMETHODCALLTYPE UI::DrawOverlayEnemies()
+	{
+		// Don't continue if we're not open.
+		if (!g_SRTSettings.OverlayEnemiesUIOpened)
+			return;
+
+		ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav;
+		if (!g_SRTSettings.MainUIOpened)
+			window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoInputs;
+		ImGui::SetNextWindowPos(ImVec2(50, 50), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowSize(ImVec2(240, 340), ImGuiCond_FirstUseEver);
+		ImGui::SetNextWindowBgAlpha(g_SRTSettings.OverlayEnemiesOpacity);
+
+		static const std::string overlayEnemiesWindowTitle = std::format("{} Enemies Overlay###SRTOverlayEnemies", SRTPluginRE9::ToolNameShort);
+		if (ImGui::Begin(overlayEnemiesWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.OverlayEnemiesUIOpened), window_flags))
+		{
+			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
+			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
+
+			if (!localBufferedGameData.HasData)
+				ImGui::Text("SRT is loading...");
+			else
+			{
+				const auto &localGameData = localBufferedGameData.Data;
 
 				// Enemies
 				const auto enemiesToShow = std::min(static_cast<size_t>(g_SRTSettings.EnemiesShownLimit), localGameData.FilteredEnemies.Size);
@@ -408,11 +511,15 @@ namespace SRTPluginRE9::Hook
 					if (g_SRTSettings.EnemiesHideFullHP && enemyData.HP.CurrentHP == enemyData.HP.MaximumHP)
 						continue;
 
-					auto enemyName = characterMap.contains(enemyData.KindID) ? characterMap.at(enemyData.KindID) : enemyData.KindID;
+					ImVec4 enemyColor;
 					if (enemyData.HP.CurrentHP != enemyData.HP.MaximumHP)
-						ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesInjuredTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+						enemyColor = ColorFromPreset(g_SRTSettings.EnemiesInjuredTextColorIndex);
 					else
-						ImGui::TextColored(ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex), "%s %" PRIi32 " / %" PRIi32, enemyName.c_str(), enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
+						enemyColor = ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex);
+
+					auto enemyName = characterMap.contains(enemyData.KindID) ? characterMap.at(enemyData.KindID) : enemyData.KindID;
+					ImGui::TextColored(enemyColor, "%s", enemyName.c_str());
+					ImGui::TextColored(enemyColor, "%" PRIi32 " / %" PRIi32, enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 
 					if (g_SRTSettings.DebugEnable && g_SRTSettings.DebugEnemiesShowPosition)
 					{
@@ -425,7 +532,7 @@ namespace SRTPluginRE9::Hook
 								distanceColor = ImVec4{0.8f, 0.8f, 0.2f, 1.f}; // Yellow
 							else
 								distanceColor = ImVec4{0.8f, 0.2f, 0.2f, 1.f}; // Red
-							distanceString = std::format("Pos: {:.2f}, {:.2f}, {:.2f} -> {:.2f}", enemyData.Position.X, enemyData.Position.Y, enemyData.Position.Z, enemyData.Distance);
+							auto distanceString = std::format("Pos: {:.2f}, {:.2f}, {:.2f} -> {:.2f}", enemyData.Position.X, enemyData.Position.Y, enemyData.Position.Z, enemyData.Distance);
 							ImGui::TextColored(distanceColor, distanceString.c_str());
 						}
 						else

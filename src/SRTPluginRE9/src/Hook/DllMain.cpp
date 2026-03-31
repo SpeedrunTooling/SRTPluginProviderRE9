@@ -12,7 +12,7 @@ HMODULE g_dllModule = nullptr;
 HANDLE g_mainThread = nullptr;
 FILE *g_logFile = nullptr;
 SRTPluginRE9::Logger::Logger *logger = nullptr;
-SRTPluginRE9::Logger::LoggerUIData *g_LoggerUIData = nullptr;
+SRTPluginRE9::Logger::LogViewerData *g_LogViewerData = nullptr;
 std::mutex g_LogMutex;
 
 const std::wstring GetCrashDumpFileName()
@@ -79,9 +79,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 		{
 			{
 				std::lock_guard<std::mutex> lock(g_LogMutex);
-				g_LoggerUIData = new SRTPluginRE9::Logger::LoggerUIData();
+				g_LogViewerData = new SRTPluginRE9::Logger::LogViewerData();
 			}
-			logger = new SRTPluginRE9::Logger::Logger(g_logFile, g_LoggerUIData);
+			logger = new SRTPluginRE9::Logger::Logger(g_logFile, g_LogViewerData);
 
 			logger->LogMessage("{} {}: v{}\n", SRTPluginRE9::GameNameShort, SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer);
 			logger->LogMessage("DllMain() entered with reason: {:d}\n", ul_reason_for_call);
@@ -110,8 +110,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 			logger->LogMessage("Detaching!\n");
 			{
 				std::lock_guard<std::mutex> lock(g_LogMutex);
-				delete g_LoggerUIData;
-				g_LoggerUIData = nullptr;
+				delete g_LogViewerData;
+				g_LogViewerData = nullptr;
 			}
 			delete logger;
 			logger = nullptr;
