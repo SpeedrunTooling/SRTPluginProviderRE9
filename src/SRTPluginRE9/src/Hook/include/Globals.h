@@ -9,7 +9,6 @@
 #define NOMINMAX
 #endif
 
-#include "DeferredWndProc.h"
 #include "GameObjects.h"
 #include "Logger.h"
 #include "Settings.h"
@@ -176,7 +175,6 @@ extern SRTPluginRE9::Logger::LogViewerData *g_LogViewerData;
 extern std::optional<std::uintptr_t> g_BaseAddress;
 extern std::atomic<bool> g_shutdownRequested;
 extern std::mutex g_LogMutex;
-extern DeferredWndProc g_DeferredWndProc;
 extern SRTSettings g_SRTSettings;
 
 #if defined(DEBUG) || defined(_DEBUG)

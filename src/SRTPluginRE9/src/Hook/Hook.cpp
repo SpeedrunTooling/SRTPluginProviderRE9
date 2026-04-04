@@ -4,7 +4,6 @@
 
 #include "Hook.h"
 #include "CompositeOrderer.h"
-#include "DeferredWndProc.h"
 #include "GameVersion.h"
 #include "Globals.h"
 #include "Render.h"
@@ -39,8 +38,9 @@ inline ID3D12CommandQueue *g_lastSeenDirectQueue = nullptr;
 // SRTPluginRE9::Hook::DescriptorHandle imguiFontHandle;
 inline std::atomic g_firstRunPresent = true;
 
-DeferredWndProc g_DeferredWndProc;
 SRTSettings g_SRTSettings;
+
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace SRTPluginRE9::Hook
 {
@@ -61,7 +61,8 @@ namespace SRTPluginRE9::Hook
 
 	LRESULT CALLBACK hkWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		g_DeferredWndProc.Enqueue(hwnd, msg, wParam, lParam);
+		if (ImGui::GetCurrentContext() != nullptr)
+			ImGui_ImplWin32_WndProcHandler(hwnd, msg, wParam, lParam);
 
 		if (msg == WM_KEYDOWN)
 		{
@@ -92,7 +93,7 @@ namespace SRTPluginRE9::Hook
 					case WM_SYSKEYUP:
 					case WM_CHAR:
 					case WM_SYSCHAR:
-						return true;
+						return 0;
 					default:
 						break;
 				}
@@ -117,7 +118,7 @@ namespace SRTPluginRE9::Hook
 					case WM_MOUSEMOVE:
 					case WM_MOUSEWHEEL:
 					case WM_MOUSEHWHEEL:
-						return true;
+						return 0;
 					default:
 						break;
 				}
@@ -137,10 +138,10 @@ namespace SRTPluginRE9::Hook
 						auto *raw = reinterpret_cast<RAWINPUT *>(buf);
 
 						if (raw->header.dwType == RIM_TYPEKEYBOARD && imguiIO.WantCaptureKeyboard)
-							return true;
+							return 0;
 
 						if (raw->header.dwType == RIM_TYPEMOUSE && imguiIO.WantCaptureMouse)
-							return true;
+							return 0;
 					}
 				}
 			}
@@ -345,8 +346,6 @@ namespace SRTPluginRE9::Hook
 			return oPresent(pSwapChain, SyncInterval, Flags);
 
 		const auto firstRun = g_firstRunPresent.exchange(false);
-
-		g_DeferredWndProc.ProcessQueue();
 
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();

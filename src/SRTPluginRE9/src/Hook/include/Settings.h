@@ -29,7 +29,7 @@ struct SRTSettings
 	uint32_t OverlayPlayerUIOpened = 1U; // true
 	float_t OverlayPlayerOpacity = .6f;
 
-	uint32_t OverlayInventoryUIOpened = 1U; // true
+	uint32_t OverlayInventoryUIOpened = 0U; // false
 	float_t OverlayInventoryOpacity = .6f;
 
 	uint32_t OverlayEnemiesUIOpened = 1U; // true

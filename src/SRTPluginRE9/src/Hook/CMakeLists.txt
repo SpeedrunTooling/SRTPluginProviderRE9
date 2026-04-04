@@ -54,7 +54,6 @@ target_sources(${PROJECT_NAME}
         VTableScanner.cpp
         AOBScanner.cpp
         DescriptorHeapAllocator.cpp
-        DeferredWndProc.cpp
         UI.cpp
         Settings.cpp
         Render.cpp
