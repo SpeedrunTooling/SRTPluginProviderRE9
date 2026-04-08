@@ -9,6 +9,10 @@
 #define NOMINMAX
 #endif
 
+#ifndef __DEFINE_TO_STRING
+#define __DEFINE_TO_STRING(defname) #defname
+#endif
+
 #include "GameObjects.h"
 #include "Logger.h"
 #include "Settings.h"
@@ -126,6 +130,7 @@ extern "C"
 
 	struct EnemyData
 	{
+		GUID ID;
 		std::string KindID;
 		HPData HP{};
 		PositionalDataFloat Position{};
@@ -135,6 +140,7 @@ extern "C"
 
 	struct PlayerData
 	{
+		GUID ID;
 		std::string KindID;
 		HPData HP{};
 		PositionalDataFloat Position{};

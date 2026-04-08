@@ -54,8 +54,11 @@ struct SRTSettings
 
 	// Debug settings, not shown in UI.
 	uint32_t DebugEnable = 0U;                // Enables debug mode. Shows debug options in the settings. Default: false.
+	uint32_t DebugPlayerShowPosition = 0U;    // Debug option to show player position. Default: false.
 	uint32_t DebugEnemiesShowNotSpawned = 0U; // Debug option to show enemies that haven't spawned yet but are in the enemies array. Default: false.
 	uint32_t DebugEnemiesShowPosition = 0U;   // Debug option to show enemy position and distance from player. Default: false.
+	uint32_t DebugEnemiesShowID = 0U;         // Debug option to show the enemy's ID. Default: false.
+	uint32_t DebugEnemiesShowKindID = 0U;     // Debug option to show the enemy's Kind ID. Default: false.
 };
 
 template <typename TSettingType>

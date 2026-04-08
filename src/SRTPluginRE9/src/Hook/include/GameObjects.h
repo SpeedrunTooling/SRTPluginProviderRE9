@@ -154,6 +154,12 @@ struct ManagedList // 0x20 (32)
 };
 #pragma warning(pop)
 
+struct ContextID // 0x20 (32)
+{
+	uint8_t _unknown1[0x10]; // 0x00 - 0x0F (16)
+	GUID _RawID;             // 0x10 - 0x1F (16)
+};
+
 struct Vec3 // 0x10 (16)
 {
 	float_t x;              // 0x00 - 0x03 (4)
@@ -224,7 +230,8 @@ struct HitPoint // 0x80 (128)
 
 struct CharacterContext // 0xF8 (248)
 {
-	uint8_t _unknown1[0x40]; // 0x00 - 0x3F (64)
+	uint8_t _unknown1[0x38]; // 0x00 - 0x37 (56)
+	ContextID *ID;           // 0x38 - 0x3F (8)
 	CharacterKindID *KindID; // 0x40 - 0x47 (8) (entries from app.CharacterKindID static fields?)
 	uint8_t _unknown2[0x28]; // 0x48 - 0x6F (40)
 	HitPoint *HitPoint;      // 0x70 - 0x77 (8)

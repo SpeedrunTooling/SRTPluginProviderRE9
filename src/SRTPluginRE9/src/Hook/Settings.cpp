@@ -125,9 +125,15 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "DebugEnable=", g_SRTSettings.DebugEnable);
 	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "DebugPlayerShowPosition=", g_SRTSettings.DebugPlayerShowPosition);
+	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "DebugEnemiesShowNotSpawned=", g_SRTSettings.DebugEnemiesShowNotSpawned);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "DebugEnemiesShowPosition=", g_SRTSettings.DebugEnemiesShowPosition);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "DebugEnemiesShowID=", g_SRTSettings.DebugEnemiesShowID);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "DebugEnemiesShowKindID=", g_SRTSettings.DebugEnemiesShowKindID);
 }
 
 static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, ImGuiTextBuffer *out_buf)
@@ -178,6 +184,9 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 
 	// Debug settings, not shown in UI.
 	out_buf->appendf("DebugEnable=%d\n", g_SRTSettings.DebugEnable);
+	out_buf->appendf("DebugPlayerShowPosition=%d\n", g_SRTSettings.DebugPlayerShowPosition);
 	out_buf->appendf("DebugEnemiesShowNotSpawned=%d\n", g_SRTSettings.DebugEnemiesShowNotSpawned);
 	out_buf->appendf("DebugEnemiesShowPosition=%d\n", g_SRTSettings.DebugEnemiesShowPosition);
+	out_buf->appendf("DebugEnemiesShowID=%d\n", g_SRTSettings.DebugEnemiesShowID);
+	out_buf->appendf("DebugEnemiesShowKindID=%d\n", g_SRTSettings.DebugEnemiesShowKindID);
 }

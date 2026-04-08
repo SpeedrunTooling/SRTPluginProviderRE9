@@ -2,6 +2,7 @@
 #include "CharacterMap.h"
 #include "CompositeOrderer.h"
 #include "DX12Hook.h"
+#include "GUID.h"
 #include "GameObjects.h"
 #include "Globals.h"
 #include "Protected_Ptr.h"
@@ -189,7 +190,14 @@ namespace SRTPluginRE9::Hook
 			{
 				ImGui::Checkbox("Show non-spawned enemies", reinterpret_cast<bool *>(&g_SRTSettings.DebugEnemiesShowNotSpawned));
 				ImGui::Checkbox("Show enemy position and distance", reinterpret_cast<bool *>(&g_SRTSettings.DebugEnemiesShowPosition));
+				ImGui::Checkbox("Show enemy id", reinterpret_cast<bool *>(&g_SRTSettings.DebugEnemiesShowID));
+				ImGui::Checkbox("Show enemy kind id", reinterpret_cast<bool *>(&g_SRTSettings.DebugEnemiesShowKindID));
 			}
+		}
+
+		if (g_SRTSettings.DebugEnable)
+		{
+			ImGui::Checkbox("Show player position", reinterpret_cast<bool *>(&g_SRTSettings.DebugPlayerShowPosition));
 		}
 
 		ImGui::End();
@@ -438,9 +446,12 @@ namespace SRTPluginRE9::Hook
 				auto playerName = characterMap.contains(localGameData.Player.KindID) ? characterMap.at(localGameData.Player.KindID) : localGameData.Player.KindID;
 				ImGui::Text("%s: %" PRIi32 " / %" PRIi32, playerName.c_str(), localGameData.Player.HP.CurrentHP, localGameData.Player.HP.MaximumHP);
 
-				ImGui::Text("X: %6.2f", localGameData.Player.Position.X);
-				ImGui::Text("Y: %6.2f", localGameData.Player.Position.Y);
-				ImGui::Text("Z: %6.2f", localGameData.Player.Position.Z);
+				if (g_SRTSettings.DebugPlayerShowPosition)
+				{
+					ImGui::Text("X: %6.2f", localGameData.Player.Position.X);
+					ImGui::Text("Y: %6.2f", localGameData.Player.Position.Y);
+					ImGui::Text("Z: %6.2f", localGameData.Player.Position.Z);
+				}
 			}
 		}
 		ImGui::End();
@@ -518,7 +529,22 @@ namespace SRTPluginRE9::Hook
 						enemyColor = ColorFromPreset(g_SRTSettings.EnemiesFullHPTextColorIndex);
 
 					auto enemyName = characterMap.contains(enemyData.KindID) ? characterMap.at(enemyData.KindID) : enemyData.KindID;
-					ImGui::TextColored(enemyColor, "%s", enemyName.c_str());
+
+					// ImGui::TextColored(enemyColor, "%s (%s) [%s]", enemyName.c_str(), enemyData.KindID.c_str(), SRTPluginRE9::Guid::ToString(enemyData.ID).c_str());
+					if (g_SRTSettings.DebugEnable)
+					{
+						if (g_SRTSettings.DebugEnemiesShowID && g_SRTSettings.DebugEnemiesShowKindID)
+							ImGui::TextColored(enemyColor, "%s (%s) [%s]", enemyName.c_str(), enemyData.KindID.c_str(), SRTPluginRE9::Guid::ToString(enemyData.ID).c_str());
+						else if (!g_SRTSettings.DebugEnemiesShowID && g_SRTSettings.DebugEnemiesShowKindID)
+							ImGui::TextColored(enemyColor, "%s (%s)", enemyName.c_str(), enemyData.KindID.c_str());
+						else if (g_SRTSettings.DebugEnemiesShowID && !g_SRTSettings.DebugEnemiesShowKindID)
+							ImGui::TextColored(enemyColor, "%s [%s]", enemyName.c_str(), SRTPluginRE9::Guid::ToString(enemyData.ID).c_str());
+						else
+							ImGui::TextColored(enemyColor, "%s", enemyName.c_str());
+					}
+					else
+						ImGui::TextColored(enemyColor, "%s", enemyName.c_str());
+
 					ImGui::TextColored(enemyColor, "%" PRIi32 " / %" PRIi32, enemyData.HP.CurrentHP, enemyData.HP.MaximumHP);
 
 					if (g_SRTSettings.DebugEnable && g_SRTSettings.DebugEnemiesShowPosition)

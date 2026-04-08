@@ -84,7 +84,9 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 			logger = new SRTPluginRE9::Logger::Logger(g_logFile, g_LogViewerData);
 
 			logger->LogMessage("{} {}: v{}\n", SRTPluginRE9::GameNameShort, SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer);
-			logger->LogMessage("DllMain() entered with reason: {:d}\n", ul_reason_for_call);
+			logger->LogMessage("Press {} to show UI. Press {} to shutdown.\n", "F7", "F8");
+			logger->LogMessage("{:-<50}\n", "");
+			logger->LogMessage("DllMain() entered with reason: {}\n", __DEFINE_TO_STRING(DLL_PROCESS_ATTACH));
 
 			hResult = SRTPluginRE9::Thread::SetThreadName(GetCurrentThread(), std::format("{} {} Entry Thread", SRTPluginRE9::GameNameShort, SRTPluginRE9::ToolNameShort));
 			if (FAILED(hResult))
@@ -107,7 +109,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 	{
 		if (g_logFile != nullptr)
 		{
-			logger->LogMessage("Detaching!\n");
+			logger->LogMessage("DllMain() entered with reason: {}\n", __DEFINE_TO_STRING(DLL_PROCESS_DETACH));
 			{
 				std::lock_guard<std::mutex> lock(g_LogMutex);
 				delete g_LogViewerData;

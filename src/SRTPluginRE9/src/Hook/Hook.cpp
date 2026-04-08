@@ -691,9 +691,11 @@ namespace SRTPluginRE9::Hook
 
 			// Player HP
 			auto activePlayerContext = characterManager.follow(&CharacterManager::PlayerContextFast);
+			auto playerIDGUID = activePlayerContext.follow(&PlayerContext::ID).read(&ContextID::_RawID);
 			auto playerKindString = activePlayerContext.follow(&PlayerContext::KindID).follow(&CharacterKindID::KindString);
 			auto playerHitPoint = activePlayerContext.follow(&PlayerContext::HitPoint);
 			auto playerHitPointData = playerHitPoint.follow(&HitPoint::HitPointData);
+			localGameData.Data.Player.ID = playerIDGUID;
 			localGameData.Data.Player.KindID = playerKindString->GetString();
 			localGameData.Data.Player.HP.CurrentHP = playerHitPointData.read(&CharacterHitPointData::_CurrentHP);
 			localGameData.Data.Player.HP.MaximumHP = playerHitPointData.read(&CharacterHitPointData::_CurrentMaxHP);
@@ -706,6 +708,7 @@ namespace SRTPluginRE9::Hook
 			                                  std::views::transform([&localGameData](const EnemyContext *enemyContext)
 			                                                        {
 				                                              auto protectedEnemyContext = protect(enemyContext);
+															  auto idGUID = protectedEnemyContext.follow(&EnemyContext::ID).read(&ContextID::_RawID);
 															  auto kindString = protectedEnemyContext.follow(&EnemyContext::KindID).follow(&CharacterKindID::KindString);
 				                                              auto hitPointData = protectedEnemyContext.follow(&EnemyContext::HitPoint).follow(&HitPoint::HitPointData);
 															  auto enemyFormationMemberInfo = protectedEnemyContext.follow(&EnemyContext::FormationMemberInfo);
@@ -713,6 +716,7 @@ namespace SRTPluginRE9::Hook
 															  auto enemySpawned = static_cast<bool>(enemyFormationMemberInfo);
 				                                              return EnemyData
 				                                              {
+																.ID = idGUID,
 				                                              	.KindID = kindString->GetString(),
 				                                              	.HP = HPData
 				                                              	{
