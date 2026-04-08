@@ -19,6 +19,7 @@ namespace SRTPluginRE9::Hook
 {
 	UI::UI()
 	{
+		logger->LogMessage("UI::UI() called.\n");
 		GameWindowResized();
 	}
 
@@ -446,7 +447,7 @@ namespace SRTPluginRE9::Hook
 				auto playerName = characterMap.contains(localGameData.Player.KindID) ? characterMap.at(localGameData.Player.KindID) : localGameData.Player.KindID;
 				ImGui::Text("%s: %" PRIi32 " / %" PRIi32, playerName.c_str(), localGameData.Player.HP.CurrentHP, localGameData.Player.HP.MaximumHP);
 
-				if (g_SRTSettings.DebugPlayerShowPosition)
+				if (g_SRTSettings.DebugEnable && g_SRTSettings.DebugPlayerShowPosition)
 				{
 					ImGui::Text("X: %6.2f", localGameData.Player.Position.X);
 					ImGui::Text("Y: %6.2f", localGameData.Player.Position.Y);

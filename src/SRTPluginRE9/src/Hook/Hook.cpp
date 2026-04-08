@@ -190,12 +190,15 @@ namespace SRTPluginRE9::Hook
 
 	static bool initImGuiD3D12Backend(IDXGISwapChain3 *pSwapChain)
 	{
+		logger->LogMessage("initImGuiD3D12Backend() called.\n");
 		auto &hookState = DX12Hook::DX12Hook::GetInstance().GetHookState();
 
+		logger->LogMessage("initImGuiD3D12Backend() getting the DXGI SwapChain descriptor from the current SwapChain.\n");
 		DXGI_SWAP_CHAIN_DESC desc{};
 		pSwapChain->GetDesc(&desc);
 		auto backBufferFormat = desc.BufferDesc.Format;
 
+		logger->LogMessage("initImGuiD3D12Backend() setting up ImGui's DirectX 12 initialization info structure.\n");
 		ImGui_ImplDX12_InitInfo init_info = {};
 		init_info.Device = hookState.device;
 		init_info.CommandQueue = hookState.commandQueue;
@@ -215,39 +218,52 @@ namespace SRTPluginRE9::Hook
 			auto &hs = DX12Hook::DX12Hook::GetInstance().GetHookStateMut();
 			hs.heaps.srv.Free(cpu_handle.ptr, gpu_handle.ptr);
 		};
+
+		logger->LogMessage("initImGuiD3D12Backend() initializing ImGui's DirectX 12 implementation.\n");
 		ImGui_ImplDX12_Init(&init_info);
 
+		logger->LogMessage("initImGuiD3D12Backend() completed successfully.\n");
 		return true;
 	}
 
 	static bool initImGuiOverlay(IDXGISwapChain3 *pSwapChain)
 	{
+		logger->LogMessage("initImGuiOverlay() called.\n");
 		auto &hookState = DX12Hook::DX12Hook::GetInstance().GetHookState();
 
+		logger->LogMessage("initImGuiOverlay() enabling Win32 DPI awareness in ImGui.\n");
 		ImGui_ImplWin32_EnableDpiAwareness();
 
+		logger->LogMessage("initImGuiOverlay() IMGUI_CHECKVERSION() called.\n");
 		IMGUI_CHECKVERSION();
+		logger->LogMessage("initImGuiOverlay() creating ImGui context.\n");
 		ImGui::CreateContext();
+		logger->LogMessage("initImGuiOverlay() registering settings handler.\n");
 		RegisterSRTSettingsHandler();
 
+		logger->LogMessage("initImGuiOverlay() getting ImGuiIO reference and setting configuration.\n");
 		ImGuiIO &io = ImGui::GetIO();
 		io.ConfigFlags = ImGuiConfigFlags_NoMouseCursorChange | ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
 		io.IniFilename = "SRTRE9_ImGui.ini";
 		io.LogFilename = "SRTRE9_ImGui.log";
 
+		logger->LogMessage("initImGuiOverlay() initializing ImGui's Win32 implementation.\n");
 		ImGui_ImplWin32_Init(hookState.gameWindow);
 
+		logger->LogMessage("initImGuiOverlay() initializing DirectX 12 implementation.\n");
 		if (!initImGuiD3D12Backend(pSwapChain))
 			return false;
 
 		// Create the SRT UI class which will allocate a texture on the heap, which should happen here.
+		logger->LogMessage("initImGuiOverlay() initializing UI class.\n");
 		srtUI = std::make_unique<SRTPluginRE9::Hook::UI>();
+		logger->LogMessage("initImGuiOverlay() setting the logger's reference to the UI instance.\n");
 		logger->SetUIPtr(srtUI.get());
+		logger->LogMessage("initImGuiOverlay() clearing the font atlas and re-adding the default vector font.\n");
 		io.Fonts->Clear();
 		io.Fonts->AddFontDefaultVector();
 
-		logger->LogMessage("initImGuiOverlay() - completed successfully.\n");
-
+		logger->LogMessage("initImGuiOverlay() completed successfully.\n");
 		return true;
 	}
 
@@ -277,7 +293,7 @@ namespace SRTPluginRE9::Hook
 				hookState.commandQueue = g_lastSeenDirectQueue;
 			}
 
-			logger->LogMessage("hkPresent() - Captured queue {:p} (last DIRECT queue before Present)\n",
+			logger->LogMessage("hkPresent() Captured queue {:p} (last DIRECT queue before Present)\n",
 			                   reinterpret_cast<void *>(hookState.commandQueue));
 
 			if (FAILED(dx12.Initialize(pSwapChain, reinterpret_cast<LONG_PTR>(hkWndProc))))
@@ -290,7 +306,7 @@ namespace SRTPluginRE9::Hook
 			// If ImGui context already exists, only reinit the D3D12 backend + UI.
 			if (ImGui::GetCurrentContext() != nullptr)
 			{
-				logger->LogMessage("hkPresent() - Reinitializing after resize.\n");
+				logger->LogMessage("hkPresent() Reinitializing after resize.\n");
 				if (!initImGuiD3D12Backend(pSwapChain))
 				{
 					hookState.commandQueue = nullptr;
@@ -361,18 +377,18 @@ namespace SRTPluginRE9::Hook
 
 		if (firstRun)
 		{
-			logger->LogMessage("hkPresent() - frameIndex={}, renderTarget={:p}, commandQueue={:p}\n",
+			logger->LogMessage("hkPresent() frameIndex={}, renderTarget={:p}, commandQueue={:p}\n",
 			                   frameIndex,
 			                   reinterpret_cast<void *>(frameContext.renderTarget.Get()),
 			                   reinterpret_cast<void *>(hookState.commandQueue));
 
 			// Check if renderTarget is valid
 			if (!frameContext.renderTarget)
-				logger->LogMessage("hkPresent() - WARNING: renderTarget is null!\n");
+				logger->LogMessage("hkPresent() WARNING: renderTarget is null!\n");
 
 			// Log the device removed reason BEFORE we do anything
 			auto preStatus = hookState.device->GetDeviceRemovedReason();
-			logger->LogMessage("hkPresent() - Device status before render: {:#x}\n",
+			logger->LogMessage("hkPresent() Device status before render: {:#x}\n",
 			                   static_cast<uint32_t>(preStatus));
 		}
 
@@ -412,7 +428,7 @@ namespace SRTPluginRE9::Hook
 		if (firstRun)
 		{
 			auto postStatus = hookState.device->GetDeviceRemovedReason();
-			logger->LogMessage("hkPresent() - oPresent returned {:#x}, device status after: {:#x}\n",
+			logger->LogMessage("hkPresent() oPresent returned {:#x}, device status after: {:#x}\n",
 			                   static_cast<uint32_t>(presentResult),
 			                   static_cast<uint32_t>(postStatus));
 		}
@@ -428,7 +444,7 @@ namespace SRTPluginRE9::Hook
 		if (!hookState.initialized)
 			return oResizeBuffers(pSwapChain, BufferCount, Width, Height, NewFormat, Flags);
 
-		logger->LogMessage("hkResizeBuffers() - Started (full teardown).\n");
+		logger->LogMessage("hkResizeBuffers() Started (full teardown).\n");
 
 		// === GPU DRAIN ===
 		// Wait for all in-flight GPU work before releasing any resources.
@@ -444,7 +460,7 @@ namespace SRTPluginRE9::Hook
 				WaitForSingleObject(hookState.fenceEvent, 5000);
 			}
 		}
-		logger->LogMessage("hkResizeBuffers() - GPU drain complete.\n");
+		logger->LogMessage("hkResizeBuffers() GPU drain complete.\n");
 
 		// === TEAR DOWN ALL OVERLAY D3D12 RESOURCES ===
 		// Shut down ImGui DX12 backend (keeps ImGui context + Win32 backend alive).
@@ -481,14 +497,14 @@ namespace SRTPluginRE9::Hook
 		hookState.commandQueue = nullptr;
 		hookState.initialized = false;
 
-		logger->LogMessage("hkResizeBuffers() - Resources released, calling original.\n");
+		logger->LogMessage("hkResizeBuffers() Resources released, calling original.\n");
 
 		// === CALL ORIGINAL ===
 		HRESULT hResult = oResizeBuffers(pSwapChain, BufferCount, Width, Height, NewFormat, Flags);
 		if (FAILED(hResult))
-			logger->LogMessage("hkResizeBuffers() - oResizeBuffers failed: {:#x}\n", static_cast<uint32_t>(hResult));
+			logger->LogMessage("hkResizeBuffers() oResizeBuffers failed: {:#x}\n", static_cast<uint32_t>(hResult));
 		else
-			logger->LogMessage("hkResizeBuffers() - oResizeBuffers succeeded.\n");
+			logger->LogMessage("hkResizeBuffers() oResizeBuffers succeeded.\n");
 
 		// === FORCE REINIT ON NEXT PRESENT ===
 		// Clear the cached queue so hkExecuteCommandLists re-captures a fresh one.
@@ -499,7 +515,7 @@ namespace SRTPluginRE9::Hook
 		g_firstRunPresent.store(true);
 		g_skipRenderingOnInit.store(true);
 
-		logger->LogMessage("hkResizeBuffers() - Done. Will reinitialize on next Present.\n");
+		logger->LogMessage("hkResizeBuffers() Done. Will reinitialize on next Present.\n");
 		return hResult;
 	}
 
@@ -639,14 +655,14 @@ namespace SRTPluginRE9::Hook
 		// Detect game version and set base pointers.
 		auto gameVersion = SRTPluginRE9::GameVersion::DetectGameVersion();
 		if (!gameVersion.has_value())
-			logger->LogMessage("Hook::ThreadMain() unable to detect game version: {}\n", gameVersion.error().c_str());
+			logger->LogMessage("Hook::MainLoop() unable to detect game version: {}\n", gameVersion.error().c_str());
 
 		switch (gameVersion.value())
 		{
 			default:
 			case GameVersion::GameVersion::WW_20260327_1: // 1.2.0.0
 			{
-				logger->LogMessage("Hook::ThreadMain() Game version: WW_20260327_1\n");
+				logger->LogMessage("Hook::MainLoop() Game version: WW_20260327_1\n");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E8C7750ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E90FE10ULL)).deref();
 				break;
@@ -654,7 +670,7 @@ namespace SRTPluginRE9::Hook
 
 			case GameVersion::GameVersion::WW_20260313_1: // 1.1.2.0
 			{
-				logger->LogMessage("Hook::ThreadMain() Game version: WW_20260313_1\n");
+				logger->LogMessage("Hook::MainLoop() Game version: WW_20260313_1\n");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E815400ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E843CF8ULL)).deref();
 				break;
@@ -662,7 +678,7 @@ namespace SRTPluginRE9::Hook
 
 			case GameVersion::GameVersion::WW_20260305_1: // 1.1.1.0
 			{
-				logger->LogMessage("Hook::ThreadMain() Game version: WW_20260305_1\n");
+				logger->LogMessage("Hook::MainLoop() Game version: WW_20260305_1\n");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E816400ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E844CF8ULL)).deref();
 				break;
@@ -670,7 +686,7 @@ namespace SRTPluginRE9::Hook
 
 			case GameVersion::GameVersion::WW_20260225_1: // 1.0.0.0
 			{
-				logger->LogMessage("Hook::ThreadMain() Game version: WW_20260225_1\n");
+				logger->LogMessage("Hook::MainLoop() Game version: WW_20260225_1\n");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E857F30ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E8377C8ULL)).deref();
 				break;
@@ -678,6 +694,7 @@ namespace SRTPluginRE9::Hook
 		}
 
 		// Read until shutdown requested.
+		logger->LogMessage("Hook::MainLoop() Starting memory read loop indefinitely until shutdown requested...\n");
 		while (!g_shutdownRequested.load())
 		{
 			// Acquire an index to buffer data write into and get a reference to that data buffer.
@@ -736,7 +753,7 @@ namespace SRTPluginRE9::Hook
 
 			localGameData.FilteredEnemiesBacking = localGameData.AllEnemiesBacking |
 			                                       std::views::filter([](const EnemyData &enemyData)
-			                                                          { return enemyData.HP.CurrentHP != 0 && (g_SRTSettings.DebugEnemiesShowNotSpawned || (enemyData.IsSpawned && enemyData.Distance <= g_SRTSettings.EnemiesMaxDistance)); }) |
+			                                                          { return enemyData.HP.CurrentHP != 0 && ((g_SRTSettings.DebugEnable && g_SRTSettings.DebugEnemiesShowNotSpawned) || (enemyData.IsSpawned && enemyData.Distance <= g_SRTSettings.EnemiesMaxDistance)); }) |
 			                                       std::ranges::to<std::vector>();
 
 			// constexpr auto compare = OrderBy([](const EnemyData &enemyData)
@@ -779,5 +796,6 @@ namespace SRTPluginRE9::Hook
 			// Sleep until next read operation.
 			Sleep(memoryReadIntervalInMS);
 		}
+		logger->LogMessage("Hook::MainLoop() Loop exiting due to g_shutdownRequested state change!\n");
 	}
 }
