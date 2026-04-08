@@ -1,4 +1,5 @@
 #include "Logger.h"
+#include "DateTime.h"
 
 #include <cstdio>
 
@@ -11,17 +12,19 @@ namespace SRTPluginRE9::Logger
 
 	void Logger::LogMessage(const std::string_view message)
 	{
+		const std::string format = std::format("[{:" SRT_DATETIME_FORMAT "}] {}", SRTPluginRE9::DateTime::GetUTCDateTime(), message);
 		if (out)
 		{
-			std::fwrite(message.data(), 1, message.size(), out);
+			std::fwrite(format.data(), 1, format.size(), out);
 			std::fflush(out);
 		}
-		LogMessageUI("%s", message.data());
+		LogMessageUI("%s", format.data());
 	}
 
 	void Logger::LogException(const std::exception &ex, const std::source_location &location)
 	{
-		const std::string format = std::format("[RE2R-R] {:s} Exception: {:s}\n{:s} @ {:s}:{:d}:{:d}\n",
+		const std::string format = std::format("[{:" SRT_DATETIME_FORMAT "}] {:s} Exception: {:s}\n{:s} @ {:s}:{:d}:{:d}\n",
+		                                       SRTPluginRE9::DateTime::GetUTCDateTime(),
 		                                       typeid(ex).name(),
 		                                       ex.what(),
 		                                       location.function_name(),
@@ -30,10 +33,10 @@ namespace SRTPluginRE9::Logger
 		                                       location.column());
 		if (out)
 		{
-			fputs(format.c_str(), out);
-			fflush(out);
+			std::fwrite(format.data(), 1, format.size(), out);
+			std::fflush(out);
 		}
-		LogMessageUI("%s", format.c_str());
+		LogMessageUI("%s", format.data());
 	}
 
 	void Logger::LogMessageUI(const char *fmt, ...) IM_FMTARGS(2)
