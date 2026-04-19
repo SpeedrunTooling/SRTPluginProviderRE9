@@ -2,7 +2,7 @@ name: "Automated Release"
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       buildConfiguration:
@@ -13,7 +13,8 @@ on:
         options:
           - Release
           - Debug
-      versionPreReleaseTag: # Use alpha, beta, or rc for pre-release. An empty string for stable.
+      versionPreReleaseTag:
+        # Use alpha, beta, or rc for pre-release. An empty string for stable.
         description: "Pre-Release Tag"
         required: true
         default: "alpha"
@@ -199,7 +200,8 @@ jobs:
 
       - name: Build
         working-directory: ${{ env.working-directory }}
-        run: cmake --build --preset "${{ env.configuration }}/Win/x64/MSVC" --config ${{ env.cppConfiguration }}
+        run: cmake --build --preset "${{ env.configuration }}/Win/x64/MSVC" --config ${{
+          env.cppConfiguration }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
@@ -214,7 +216,7 @@ jobs:
   package:
     name: "Package"
     runs-on: windows-2025-vs2026
-    needs: [setup, build-csharp, build-cpp]
+    needs: [ setup, build-csharp, build-cpp ]
     env:
       working-directory: .
       is-prerelease: true
@@ -228,6 +230,31 @@ jobs:
 
       - name: Download all artifacts
         uses: actions/download-artifact@v8
+
+      # Log into Azure
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          creds: "{\"clientId\":\"${{ secrets.ASTJG_AZURE_CLIENT_ID }}\",\"clientSecret\":\"${{ secrets.ASTJG_AZURE_CLIENT_SECRET }}\",\"subscriptionId\":\"${{ secrets.ASTJG_AZURE_SUBSCRIPTION_ID }}\",\"tenantId\":\"${{ secrets.ASTJG_AZURE_TENANT_ID }}\"}"
+
+      # Sign build artifacts before packaging.
+      - name: Sign executables with Trusted Signing
+        uses: azure/trusted-signing-action@v1
+        with:
+          azure-tenant-id: ${{ secrets.ASTJG_AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.ASTJG_AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.ASTJG_AZURE_CLIENT_SECRET }}
+          endpoint: https://ncus.codesigning.azure.net/
+          trusted-signing-account-name: AS-TJGutjahr
+          certificate-profile-name: AS-CP-TJGutjahr
+          files: |
+            ${{ github.workspace }}\ArtifactsCsharp\SRT*.dll
+            ${{ github.workspace }}\ArtifactsCsharp\SRT*.exe
+            ${{ github.workspace }}\ArtifactsCpp\SRT*.dll
+            ${{ github.workspace }}\ArtifactsCpp\SRT*.exe
+          file-digest: SHA512
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA512
 
       # Zip the publish artifacts
       - name: Zip the publish artifacts
@@ -275,7 +302,7 @@ jobs:
   postrun:
     name: Post-Run
     runs-on: windows-2025-vs2026
-    needs: [setup, package]
+    needs: [ setup, package ]
 
     defaults:
       run:
