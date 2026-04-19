@@ -235,7 +235,10 @@ jobs:
       - name: Azure Login
         uses: azure/login@v3
         with:
-          creds: "{\"clientId\":\"${{ secrets.ASTJG_AZURE_CLIENT_ID }}\",\"clientSecret\":\"${{ secrets.ASTJG_AZURE_CLIENT_SECRET }}\",\"subscriptionId\":\"${{ secrets.ASTJG_AZURE_SUBSCRIPTION_ID }}\",\"tenantId\":\"${{ secrets.ASTJG_AZURE_TENANT_ID }}\"}"
+          creds: "{\"clientId\":\"${{ secrets.ASTJG_AZURE_CLIENT_ID
+            }}\",\"clientSecret\":\"${{ secrets.ASTJG_AZURE_CLIENT_SECRET
+            }}\",\"subscriptionId\":\"${{ secrets.ASTJG_AZURE_SUBSCRIPTION_ID
+            }}\",\"tenantId\":\"${{ secrets.ASTJG_AZURE_TENANT_ID }}\"}"
 
       # Sign build artifacts before packaging.
       - name: Sign executables with Trusted Signing
@@ -248,10 +251,9 @@ jobs:
           trusted-signing-account-name: AS-TJGutjahr
           certificate-profile-name: AS-CP-TJGutjahr
           files: |
-            ${{ github.workspace }}\ArtifactsCsharp\SRT*.dll
-            ${{ github.workspace }}\ArtifactsCsharp\SRT*.exe
-            ${{ github.workspace }}\ArtifactsCpp\SRT*.dll
-            ${{ github.workspace }}\ArtifactsCpp\SRT*.exe
+            ${{ github.workspace }}\ArtifactsCsharp\SRTPluginProviderRE9.dll
+            ${{ github.workspace }}\ArtifactsCpp\SRTPluginRE9.dll
+            ${{ github.workspace }}\ArtifactsCpp\SRTPluginRE9.Injector.exe
           file-digest: SHA512
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA512

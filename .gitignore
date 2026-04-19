@@ -22,6 +22,9 @@ extern/
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
+# C# Dev Kit language server caches
+*.lscache
+
 # Mono auto generated files
 mono_crash.*
 
