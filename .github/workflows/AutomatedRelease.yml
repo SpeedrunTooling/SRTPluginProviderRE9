@@ -248,7 +248,7 @@ jobs:
           azure-client-id: ${{ secrets.ASTJG_AZURE_CLIENT_ID }}
           azure-client-secret: ${{ secrets.ASTJG_AZURE_CLIENT_SECRET }}
           endpoint: https://ncus.codesigning.azure.net/
-          trusted-signing-account-name: AS-TJGutjahr
+          signing-account-name: AS-TJGutjahr
           certificate-profile-name: AS-CP-TJGutjahr
           files: |
             ${{ github.workspace }}\ArtifactsCsharp\SRTPluginProviderRE9.dll
