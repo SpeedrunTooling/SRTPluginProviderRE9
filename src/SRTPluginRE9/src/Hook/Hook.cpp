@@ -660,6 +660,14 @@ namespace SRTPluginRE9::Hook
 		switch (gameVersion.value())
 		{
 			default:
+			case GameVersion::GameVersion::WW_20260508_1: // 1.3.0.0
+			{
+				logger->LogMessage("Hook::MainLoop() Game version: WW_20260508_1\n");
+				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E9E1190ULL)).deref();
+				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E999618ULL)).deref();
+				break;
+			}
+
 			case GameVersion::GameVersion::WW_20260327_1: // 1.2.0.0
 			{
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260327_1\n");

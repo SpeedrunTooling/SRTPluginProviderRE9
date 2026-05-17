@@ -21,6 +21,7 @@ namespace SRTPluginRE9::GameVersion
 		WW_20260305_1,
 		WW_20260313_1,
 		WW_20260327_1,
+		WW_20260508_1,
 	};
 
 	const std::expected<const GameVersion, std::string> DetectGameVersion();
