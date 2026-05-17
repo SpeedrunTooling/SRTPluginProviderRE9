@@ -7,4 +7,5 @@ public enum GameVersion : int
     WW_20260305_1,
     WW_20260313_1,
     WW_20260327_1,
+    WW_20260508_1,
 }
