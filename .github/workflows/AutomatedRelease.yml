@@ -242,7 +242,7 @@ jobs:
 
       # Sign build artifacts before packaging.
       - name: Sign executables with Trusted Signing
-        uses: azure/trusted-signing-action@v1
+        uses: azure/artifact-signing-action@v1
         with:
           azure-tenant-id: ${{ secrets.ASTJG_AZURE_TENANT_ID }}
           azure-client-id: ${{ secrets.ASTJG_AZURE_CLIENT_ID }}
