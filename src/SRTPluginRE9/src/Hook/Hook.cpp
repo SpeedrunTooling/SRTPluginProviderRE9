@@ -10,7 +10,6 @@
 #include "Settings.h"
 #include "Thread.h"
 #include "UI.h"
-#include <MinHook.h>
 #include <algorithm>
 #include <cfloat>
 #include <cinttypes>
@@ -558,8 +557,6 @@ namespace SRTPluginRE9::Hook
 		// the vtable functions.
 		Sleep(100);
 
-		auto status = MH_Initialize();
-
 		if (!dx12.AttachHooks(&hkPresent, &hkResizeBuffers, &hkExecuteCommandLists))
 		{
 			logger->LogMessage("Hook::Startup() DX12 hook attachment failed!\n");
@@ -571,9 +568,6 @@ namespace SRTPluginRE9::Hook
 			logger->LogMessage("Hook::Startup() DInput8 hook attachment failed!\n");
 			return false;
 		}
-
-		MH_EnableHook(MH_ALL_HOOKS);
-		retVal = status == MH_OK;
 
 		logger->LogMessage("Hook::Startup() exiting: {:d}\n", retVal);
 
@@ -589,7 +583,6 @@ namespace SRTPluginRE9::Hook
 
 		dx12.DetachHooks();
 		dinput8.DetachHooks();
-		MH_Uninitialize();
 
 		Sleep(100);
 

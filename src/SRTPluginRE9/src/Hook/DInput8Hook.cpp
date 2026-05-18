@@ -1,6 +1,6 @@
 #include "DInput8Hook.h"
 #include "Globals.h"
-#include <MinHook.h>
+#include <safetyhook.hpp>
 
 namespace SRTPluginRE9::DInput8Hook
 {
@@ -84,17 +84,8 @@ namespace SRTPluginRE9::DInput8Hook
 
 	bool DInput8Hook::AttachHooks(PFN_GetDeviceState hkGetDeviceState, PFN_GetDeviceData hkGetDeviceData)
 	{
-		if (MH_CreateHook(vtableAddresses.getDeviceState, reinterpret_cast<void *>(hkGetDeviceState), reinterpret_cast<void **>(&oGetDeviceState)) != MH_OK)
-		{
-			logger->LogMessage("DInput8Hook::AttachHooks() - MH_CreateHook(GetDeviceState) failed.\n");
-			return false;
-		}
-
-		if (MH_CreateHook(vtableAddresses.getDeviceData, reinterpret_cast<void *>(hkGetDeviceData), reinterpret_cast<void **>(&oGetDeviceData)) != MH_OK)
-		{
-			logger->LogMessage("DInput8Hook::AttachHooks() - MH_CreateHook(GetDeviceData) failed.\n");
-			return false;
-		}
+		oGetDeviceState = safetyhook::create_inline(vtableAddresses.getDeviceState, reinterpret_cast<void *>(hkGetDeviceState));
+		oGetDeviceData = safetyhook::create_inline(vtableAddresses.getDeviceData, reinterpret_cast<void *>(hkGetDeviceData));
 
 		logger->LogMessage("DInput8Hook::AttachHooks() - All DInput8 hooks attached.\n");
 		return true;
@@ -102,17 +93,12 @@ namespace SRTPluginRE9::DInput8Hook
 
 	void DInput8Hook::DetachHooks()
 	{
-		if (oGetDeviceState)
-			MH_DisableHook(vtableAddresses.getDeviceState);
-		if (oGetDeviceData)
-			MH_DisableHook(vtableAddresses.getDeviceData);
-
-		oGetDeviceState = nullptr;
-		oGetDeviceData = nullptr;
+		oGetDeviceData.reset();
+		oGetDeviceState.reset();
 
 		logger->LogMessage("DInput8Hook::DetachHooks() - All DInput8 hooks detached.\n");
 	}
 
-	DInput8Hook::PFN_GetDeviceState DInput8Hook::GetOriginalGetDeviceState() const { return oGetDeviceState; }
-	DInput8Hook::PFN_GetDeviceData DInput8Hook::GetOriginalGetDeviceData() const { return oGetDeviceData; }
+	DInput8Hook::PFN_GetDeviceState DInput8Hook::GetOriginalGetDeviceState() const { return oGetDeviceState.original<PFN_GetDeviceState>(); }
+	DInput8Hook::PFN_GetDeviceData DInput8Hook::GetOriginalGetDeviceData() const { return oGetDeviceData.original<PFN_GetDeviceData>(); }
 }
