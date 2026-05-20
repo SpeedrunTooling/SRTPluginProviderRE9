@@ -34,10 +34,11 @@ inline std::atomic<bool> g_shutdownRequested = false;
 inline std::mutex g_queueMutex;
 inline ID3D12CommandQueue *g_lastSeenDirectQueue = nullptr;
 
-// SRTPluginRE9::Hook::DescriptorHandle imguiFontHandle;
 inline std::atomic g_firstRunPresent = true;
 
 SRTSettings g_SRTSettings;
+
+SafetyHookInline oGetFOV{};
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -56,6 +57,14 @@ namespace SRTPluginRE9::Hook
 		{
 			return std::nullopt;
 		}
+	}
+
+	float hkGetFOV(
+	    [[maybe_unused]] void *ctx,     // RCX  - runtime context (pass through untouched)
+	    [[maybe_unused]] void *thisPtr) // RDX  - This pointer
+	{
+		auto originalValue = oGetFOV.call<float, void *, void *>(ctx, thisPtr);
+		return originalValue * 2.f; // 46.f * 2.f = 92.f
 	}
 
 	LRESULT CALLBACK hkWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -557,6 +566,9 @@ namespace SRTPluginRE9::Hook
 		// the vtable functions.
 		Sleep(100);
 
+		// TODO: Set this address as part of the game version check.
+		oGetFOV = safetyhook::create_inline(reinterpret_cast<void *>(*g_BaseAddress + 0x5020A0ULL), &hkGetFOV);
+
 		if (!dx12.AttachHooks(&hkPresent, &hkResizeBuffers, &hkExecuteCommandLists))
 		{
 			logger->LogMessage("Hook::Startup() DX12 hook attachment failed!\n");
@@ -581,6 +593,7 @@ namespace SRTPluginRE9::Hook
 		auto &dx12 = DX12Hook::DX12Hook::GetInstance();
 		auto &dinput8 = DInput8Hook::DInput8Hook::GetInstance();
 
+		oGetFOV.reset();
 		dx12.DetachHooks();
 		dinput8.DetachHooks();
 
