@@ -154,6 +154,26 @@ struct ManagedList // 0x20 (32)
 };
 #pragma warning(pop)
 
+namespace app
+{
+	enum class PlayerMode : std::int32_t
+	{
+		TPS = 0,
+		FPS = 1,
+	};
+
+	namespace PlayerCameraFOVParam
+	{
+		enum class TemplateType : std::int32_t
+		{
+			Default = 0,
+			Hold = 1,
+		};
+	}
+}
+
+struct ManagedContext;
+
 struct ContextID // 0x20 (32)
 {
 	uint8_t _unknown1[0x10]; // 0x00 - 0x0F (16)

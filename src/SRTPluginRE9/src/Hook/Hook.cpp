@@ -44,6 +44,35 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 
 namespace SRTPluginRE9::Hook
 {
+	class CameraFOVCatalogUserData_ID
+	{
+	public:
+		app::PlayerMode get_Mode(ManagedContext *ctx)
+		{
+			using fn_t = app::PlayerMode (*)(ManagedContext *, CameraFOVCatalogUserData_ID *);
+			static const auto fn = reinterpret_cast<fn_t>(*g_BaseAddress + 0x6400cf0ULL);
+			return fn(ctx, this);
+		}
+
+		app::PlayerCameraFOVParam::TemplateType get_Type(ManagedContext *ctx)
+		{
+			using fn_t = app::PlayerCameraFOVParam::TemplateType (*)(ManagedContext *, CameraFOVCatalogUserData_ID *);
+			static const auto fn = reinterpret_cast<fn_t>(*g_BaseAddress + 0x6404880ULL);
+			return fn(ctx, this);
+		}
+	};
+
+	class PlayerCameraFOVCalc
+	{
+	public:
+		CameraFOVCatalogUserData_ID *getCameraFOVID(ManagedContext *ctx)
+		{
+			using fn_t = CameraFOVCatalogUserData_ID *(*)(ManagedContext *, PlayerCameraFOVCalc *);
+			static const auto fn = reinterpret_cast<fn_t>(*g_BaseAddress + 0x502620ULL);
+			return fn(ctx, this);
+		}
+	};
+
 	[[nodiscard]] std::optional<std::uintptr_t> get_module_base(const wchar_t *module_name) noexcept
 	{
 		__try
@@ -60,11 +89,30 @@ namespace SRTPluginRE9::Hook
 	}
 
 	float hkGetFOV(
-	    [[maybe_unused]] void *ctx,     // RCX  - runtime context (pass through untouched)
-	    [[maybe_unused]] void *thisPtr) // RDX  - This pointer
+	    ManagedContext *ctx,                      // RCX - Runtime context
+	    PlayerCameraFOVCalc *playerCameraFOVCalc) // RDX - This pointer
 	{
-		auto originalValue = oGetFOV.call<float, void *, void *>(ctx, thisPtr);
-		return originalValue * 2.f; // 46.f * 2.f = 92.f
+		// Get the original FOV value.
+		auto originalValue = oGetFOV.call<float, ManagedContext *, PlayerCameraFOVCalc *>(ctx, playerCameraFOVCalc);
+
+		// Define the fov mode and type variables.
+		auto cameraFOVMode = app::PlayerMode::TPS;
+		auto cameraFOVType = app::PlayerCameraFOVParam::TemplateType::Default;
+
+		// Call getCameraFOVID() to get a pointer to the class that has the mode and type information.
+		auto *cameraFOVID = playerCameraFOVCalc->getCameraFOVID(ctx);
+		if (cameraFOVID)
+		{
+			// Get the mode and type.
+			cameraFOVMode = cameraFOVID->get_Mode(ctx);
+			cameraFOVType = cameraFOVID->get_Type(ctx);
+
+			// Return the appropriate FOV the user desires based on the current mode and type.
+			return originalValue * 2.f; // 46.f * 2.f = 92.f
+		}
+
+		// If we did not get a valid pointer, just return original, unchanged value.
+		return originalValue;
 	}
 
 	LRESULT CALLBACK hkWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
