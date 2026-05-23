@@ -199,7 +199,7 @@ jobs:
           .\bootstrap-vcpkg.bat
 
       - name: Set test build environment variable if checked
-        if: ${{ github.event.inputs.testBuild == true }}
+        if: ${{ inputs.testBuild }}
         run: echo 'TESTBUILD=' >> $env:GITHUB_ENV
 
       - name: Configure
