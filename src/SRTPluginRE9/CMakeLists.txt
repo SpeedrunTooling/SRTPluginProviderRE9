@@ -44,6 +44,7 @@ add_compile_definitions(
     "WIN32_LEAN_AND_MEAN"
     "_AMD64_"
     "_WIN64"
+    "$<$<BOOL:$ENV{TESTBUILD}>:TESTBUILD>"
 )
 
 function(set_from_env var_name default_value var_type var_desc)

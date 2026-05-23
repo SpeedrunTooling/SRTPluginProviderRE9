@@ -24,6 +24,10 @@ on:
           - "beta"
           - "RC"
           - ""
+      testBuild:
+        description: "Test build"
+        type: boolean
+        default: false
 
 env:
   projectName: SRTPluginProviderRE9
@@ -193,6 +197,10 @@ jobs:
           cd "$($env:VCPKG_ROOT)"
           git pull
           .\bootstrap-vcpkg.bat
+
+      - name: Set test build environment variable if checked
+        if: ${{ github.event.inputs.testBuild == true }}
+        run: echo 'TESTBUILD=' >> $env:GITHUB_ENV
 
       - name: Configure
         working-directory: ${{ env.working-directory }}

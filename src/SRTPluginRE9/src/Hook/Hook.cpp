@@ -108,10 +108,23 @@ namespace SRTPluginRE9::Hook
 			cameraFOVType = cameraFOVID->get_Type(ctx);
 
 			// Return the appropriate FOV the user desires based on the current mode and type.
-			return originalValue * 2.f; // 46.f * 2.f = 92.f
+			if (cameraFOVMode == app::PlayerMode::TPS)
+			{
+				if (cameraFOVType == app::PlayerCameraFOVParam::TemplateType::Default)
+					return g_SRTSettings.FOVTPSNormal;
+				else if (cameraFOVType == app::PlayerCameraFOVParam::TemplateType::Hold)
+					return g_SRTSettings.FOVTPSADS;
+			}
+			else if (cameraFOVMode == app::PlayerMode::FPS)
+			{
+				if (cameraFOVType == app::PlayerCameraFOVParam::TemplateType::Default)
+					return g_SRTSettings.FOVFPSNormal;
+				else if (cameraFOVType == app::PlayerCameraFOVParam::TemplateType::Hold)
+					return g_SRTSettings.FOVFPSADS;
+			}
 		}
 
-		// If we did not get a valid pointer, just return original, unchanged value.
+		// If we did not get a valid pointer or we fell through the if statements, just return original, unchanged value.
 		return originalValue;
 	}
 

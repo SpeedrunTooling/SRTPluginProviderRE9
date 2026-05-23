@@ -52,6 +52,11 @@ struct SRTSettings
 	float_t DPIScalingFactor = 0.f;  // Default to 0 so automatic calculation occurs. See UI.cpp.
 	float_t FontScalingFactor = 0.f; // Default to 0 so automatic calculation occurs. See UI.cpp.
 
+	float_t FOVTPSNormal = 40.f;
+	float_t FOVTPSADS = 25.f;
+	float_t FOVFPSNormal = 46.f;
+	float_t FOVFPSADS = 40.f;
+
 	// Debug settings, not shown in UI.
 	uint32_t DebugEnable = 0U;                // Enables debug mode. Shows debug options in the settings. Default: false.
 	uint32_t DebugPlayerShowPosition = 0U;    // Debug option to show player position. Default: false.

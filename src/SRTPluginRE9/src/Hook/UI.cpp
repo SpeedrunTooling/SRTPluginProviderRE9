@@ -25,7 +25,9 @@ namespace SRTPluginRE9::Hook
 
 	void STDMETHODCALLTYPE UI::DrawUI()
 	{
+#ifndef TESTBUILD
 		DrawLogoOverlay();
+#endif
 		DrawMain();
 		DrawOverlayGameInfo();
 		DrawOverlayPlayer();
@@ -165,6 +167,12 @@ namespace SRTPluginRE9::Hook
 				UI::RescaleFont();
 			}
 		}
+
+		// FOV
+		ImGui::SliderFloat("Third-Person Normal FOV", &g_SRTSettings.FOVTPSNormal, 15.0f, 120.0f, "%.0f");
+		ImGui::SliderFloat("Third-Person ADS FOV", &g_SRTSettings.FOVTPSADS, 15.0f, 120.0f, "%.0f");
+		ImGui::SliderFloat("First-Person Normal FOV", &g_SRTSettings.FOVFPSNormal, 15.0f, 120.0f, "%.0f");
+		ImGui::SliderFloat("First-Person ADS FOV", &g_SRTSettings.FOVFPSADS, 15.0f, 120.0f, "%.0f");
 
 		ImGui::Checkbox("Show customization options", reinterpret_cast<bool *>(&g_SRTSettings.ShowCustomizationOptions));
 		if (g_SRTSettings.ShowCustomizationOptions)

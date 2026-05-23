@@ -121,6 +121,15 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "FontScalingFactor=", g_SRTSettings.FontScalingFactor);
 
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "FOVTPSNormal=", g_SRTSettings.FOVTPSNormal);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "FOVTPSADS=", g_SRTSettings.FOVTPSADS);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "FOVFPSNormal=", g_SRTSettings.FOVFPSNormal);
+	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "FOVFPSADS=", g_SRTSettings.FOVFPSADS);
+
 	// Debug settings, not shown in UI.
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "DebugEnable=", g_SRTSettings.DebugEnable);
@@ -181,6 +190,11 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 
 	out_buf->appendf("DPIScalingFactor=%f\n", g_SRTSettings.DPIScalingFactor);
 	out_buf->appendf("FontScalingFactor=%f\n", g_SRTSettings.FontScalingFactor);
+
+	out_buf->appendf("FOVTPSNormal=%f\n", g_SRTSettings.FOVTPSNormal);
+	out_buf->appendf("FOVTPSADS=%f\n", g_SRTSettings.FOVTPSADS);
+	out_buf->appendf("FOVFPSNormal=%f\n", g_SRTSettings.FOVFPSNormal);
+	out_buf->appendf("FOVFPSADS=%f\n", g_SRTSettings.FOVFPSADS);
 
 	// Debug settings, not shown in UI.
 	out_buf->appendf("DebugEnable=%d\n", g_SRTSettings.DebugEnable);
