@@ -200,7 +200,7 @@ jobs:
 
       - name: Set test build environment variable if checked
         if: ${{ inputs.testBuild }}
-        run: echo 'TESTBUILD=' >> $env:GITHUB_ENV
+        run: echo 'TESTBUILD=1' >> $env:GITHUB_ENV
 
       - name: Configure
         working-directory: ${{ env.working-directory }}

@@ -77,6 +77,15 @@ namespace SRTPluginRE9::Version
 #define APP_VERSION_SEMVER "0.1.0+1"
 #endif
 	constinit const std::string_view SemVer = APP_VERSION_SEMVER;
+
+#ifdef TESTBUILD
+#define APP_VERSION_BUILD_TYPE "Test Build"
+#elifdef RELEASE
+#define APP_VERSION_BUILD_TYPE "Release Build"
+#else
+#define APP_VERSION_BUILD_TYPE "Debug Build"
+#endif
+	constinit const std::string_view BuildType = APP_VERSION_BUILD_TYPE;
 }
 
 extern "C"

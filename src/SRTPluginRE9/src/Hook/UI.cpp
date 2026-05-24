@@ -85,7 +85,7 @@ namespace SRTPluginRE9::Hook
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.MainOpacity);
 
 		// "Display Title###Unique Window ID"
-		static const std::string mainWindowTitle = std::format("{} - v{}###SRTMain", SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer);
+		static const std::string mainWindowTitle = std::format("{} - v{} {}###SRTMain", SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer, SRTPluginRE9::Version::BuildType);
 		if (!ImGui::Begin(mainWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.MainUIOpened), ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoCollapse))
 		{
 			ImGui::End();
@@ -279,6 +279,15 @@ namespace SRTPluginRE9::Hook
 #endif
 #ifdef __MINGW64__
 			ImGui::Text("define: __MINGW64__");
+#endif
+#ifdef RELEASE
+			ImGui::Text("define: RELEASE");
+#endif
+#ifdef DEBUG
+			ImGui::Text("define: DEBUG");
+#endif
+#ifdef TESTBUILD
+			ImGui::Text("define: TESTBUILD");
 #endif
 
 			if (copyToClipboard)
