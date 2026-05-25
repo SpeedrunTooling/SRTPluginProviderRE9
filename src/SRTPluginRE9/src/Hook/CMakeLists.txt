@@ -29,6 +29,7 @@ FetchContent_GetProperties(safetyhook)
 
 # vcpkg dependencies.
 find_package(imgui CONFIG REQUIRED)
+find_package(magic_enum CONFIG REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED)
 add_library(SRTPluginRE9::Hook ALIAS ${PROJECT_NAME})
@@ -80,7 +81,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     PUBLIC imgui::imgui
-    PRIVATE safetyhook d3d12 d3dcompiler dxgi dinput8 dxguid dbghelp
+    PRIVATE safetyhook magic_enum::magic_enum d3d12 d3dcompiler dxgi dinput8 dxguid dbghelp
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

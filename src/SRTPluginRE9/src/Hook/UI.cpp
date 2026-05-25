@@ -11,6 +11,7 @@
 #include <functional>
 #include <imgui.h>
 #include <imgui_impl_win32.h>
+#include <magic_enum/magic_enum.hpp>
 #include <mutex>
 #include <optional>
 #include <ranges>
@@ -130,10 +131,12 @@ namespace SRTPluginRE9::Hook
 
 		ImGui::Text("Thank you for using the %s for %s.", SRTPluginRE9::ToolNameShort, SRTPluginRE9::GameName);
 		ImGui::Separator();
+
 		ImGui::Text("Press F7 to toggle the main %s window.", SRTPluginRE9::ToolNameShort);
 		ImGui::Text("Press F8 or go to File -> Exit to shutdown the %s.", SRTPluginRE9::ToolNameShort);
 		ImGui::Separator();
 
+		ImGui::Text("Game version: %s", magic_enum::enum_name(g_GameVersion).data());
 		ImGui::Text("Resolution: %.0fx%.0f", horizontal, vertical);
 		ImGui::Combo("Logo Position", &g_SRTSettings.LogoPosition, logoPositions, IM_ARRAYSIZE(logoPositions));
 		OpacitySlider("Logo Opacity", g_SRTSettings.LogoOpacity, 10.0f);
@@ -244,6 +247,7 @@ namespace SRTPluginRE9::Hook
 
 			ImGui::Text("%s %s", SRTPluginRE9::GameName, SRTPluginRE9::ToolName);
 			ImGui::Text("v%s", SRTPluginRE9::Version::SemVer.data());
+			ImGui::Text("Game version: %s", magic_enum::enum_name(g_GameVersion).data());
 			ImGui::Separator();
 			ImGui::Text("Build datetime: %s %s", __DATE__, __TIME__);
 			// ImGui::Text("Debug build: %s", SRTPluginRE9::IsDebug ? "true" : "false");

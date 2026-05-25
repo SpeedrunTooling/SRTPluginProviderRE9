@@ -14,6 +14,7 @@
 #endif
 
 #include "GameObjects.h"
+#include "GameVersion.h"
 #include "Logger.h"
 #include "Settings.h"
 #include <assert.h>
@@ -191,6 +192,7 @@ extern std::optional<std::uintptr_t> g_BaseAddress;
 extern std::atomic<bool> g_shutdownRequested;
 extern std::mutex g_LogMutex;
 extern SRTSettings g_SRTSettings;
+extern SRTPluginRE9::GameVersion::GameVersion g_GameVersion;
 
 #if defined(DEBUG) || defined(_DEBUG)
 #ifdef IM_ASSERT

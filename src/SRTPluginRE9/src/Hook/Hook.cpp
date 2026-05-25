@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cinttypes>
+#include <format>
 #include <functional>
 #include <imgui_impl_dx12.h>
 #include <imgui_impl_win32.h>
@@ -37,6 +38,12 @@ inline ID3D12CommandQueue *g_lastSeenDirectQueue = nullptr;
 inline std::atomic g_firstRunPresent = true;
 
 SRTSettings g_SRTSettings;
+SRTPluginRE9::GameVersion::GameVersion g_GameVersion;
+
+uintptr_t getFOVOffsetPtr;
+uintptr_t getCameraFOVIDOffsetPtr;
+uintptr_t getModeOffsetPtr;
+uintptr_t getTypeOffsetPtr;
 
 SafetyHookInline oGetFOV{};
 
@@ -50,14 +57,14 @@ namespace SRTPluginRE9::Hook
 		app::PlayerMode get_Mode(ManagedContext *ctx)
 		{
 			using fn_t = app::PlayerMode (*)(ManagedContext *, CameraFOVCatalogUserData_ID *);
-			static const auto fn = reinterpret_cast<fn_t>(*g_BaseAddress + 0x6400cf0ULL);
+			static const auto fn = reinterpret_cast<fn_t>(*g_BaseAddress + getModeOffsetPtr);
 			return fn(ctx, this);
 		}
 
 		app::PlayerCameraFOVParam::TemplateType get_Type(ManagedContext *ctx)
 		{
 			using fn_t = app::PlayerCameraFOVParam::TemplateType (*)(ManagedContext *, CameraFOVCatalogUserData_ID *);
-			static const auto fn = reinterpret_cast<fn_t>(*g_BaseAddress + 0x6404880ULL);
+			static const auto fn = reinterpret_cast<fn_t>(*g_BaseAddress + getTypeOffsetPtr);
 			return fn(ctx, this);
 		}
 	};
@@ -68,7 +75,7 @@ namespace SRTPluginRE9::Hook
 		CameraFOVCatalogUserData_ID *getCameraFOVID(ManagedContext *ctx)
 		{
 			using fn_t = CameraFOVCatalogUserData_ID *(*)(ManagedContext *, PlayerCameraFOVCalc *);
-			static const auto fn = reinterpret_cast<fn_t>(*g_BaseAddress + 0x502620ULL);
+			static const auto fn = reinterpret_cast<fn_t>(*g_BaseAddress + getCameraFOVIDOffsetPtr);
 			return fn(ctx, this);
 		}
 	};
@@ -627,9 +634,6 @@ namespace SRTPluginRE9::Hook
 		// the vtable functions.
 		Sleep(100);
 
-		// TODO: Set this address as part of the game version check.
-		oGetFOV = safetyhook::create_inline(reinterpret_cast<void *>(*g_BaseAddress + 0x5020A0ULL), &hkGetFOV);
-
 		if (!dx12.AttachHooks(&hkPresent, &hkResizeBuffers, &hkExecuteCommandLists))
 		{
 			logger->LogMessage("Hook::Startup() DX12 hook attachment failed!\n");
@@ -654,7 +658,6 @@ namespace SRTPluginRE9::Hook
 		auto &dx12 = DX12Hook::DX12Hook::GetInstance();
 		auto &dinput8 = DInput8Hook::DInput8Hook::GetInstance();
 
-		oGetFOV.reset();
 		dx12.DetachHooks();
 		dinput8.DetachHooks();
 
@@ -724,7 +727,8 @@ namespace SRTPluginRE9::Hook
 		if (!gameVersion.has_value())
 			logger->LogMessage("Hook::MainLoop() unable to detect game version: {}\n", gameVersion.error().c_str());
 
-		switch (gameVersion.value())
+		g_GameVersion = gameVersion.value();
+		switch (g_GameVersion)
 		{
 			default:
 			case GameVersion::GameVersion::WW_20260508_1: // 1.3.0.0
@@ -732,6 +736,10 @@ namespace SRTPluginRE9::Hook
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260508_1\n");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E9E1190ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E999618ULL)).deref();
+				getFOVOffsetPtr = 0x5020A0ULL;
+				getCameraFOVIDOffsetPtr = 0x502620ULL;
+				getModeOffsetPtr = 0x6400cf0ULL;
+				getTypeOffsetPtr = 0x6404880ULL;
 				break;
 			}
 
@@ -740,6 +748,10 @@ namespace SRTPluginRE9::Hook
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260327_1\n");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E8C7750ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E90FE10ULL)).deref();
+				getFOVOffsetPtr = 0x508950ULL;
+				getCameraFOVIDOffsetPtr = 0x508ED0ULL;
+				getModeOffsetPtr = 0x634B400ULL;
+				getTypeOffsetPtr = 0x634EF30ULL;
 				break;
 			}
 
@@ -748,6 +760,10 @@ namespace SRTPluginRE9::Hook
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260313_1\n");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E815400ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E843CF8ULL)).deref();
+				getFOVOffsetPtr = 0x52BCF0ULL;
+				getCameraFOVIDOffsetPtr = 0x52C270ULL;
+				getModeOffsetPtr = 0x623F7D0ULL;
+				getTypeOffsetPtr = 0x6243300ULL;
 				break;
 			}
 
@@ -756,6 +772,10 @@ namespace SRTPluginRE9::Hook
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260305_1\n");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E816400ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E844CF8ULL)).deref();
+				getFOVOffsetPtr = 0x52C300ULL;
+				getCameraFOVIDOffsetPtr = 0x52C880ULL;
+				getModeOffsetPtr = 0x623F7B0ULL;
+				getTypeOffsetPtr = 0x62432E0ULL;
 				break;
 			}
 
@@ -764,9 +784,17 @@ namespace SRTPluginRE9::Hook
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260225_1\n");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E857F30ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E8377C8ULL)).deref();
+				getFOVOffsetPtr = 0x52E5A0ULL;
+				getCameraFOVIDOffsetPtr = 0x52EB20ULL;
+				getModeOffsetPtr = 0x622CBA0ULL;
+				getTypeOffsetPtr = 0x62306D0ULL;
 				break;
 			}
 		}
+
+		// Hook version-specific hooks.
+		if (getFOVOffsetPtr)
+			oGetFOV = safetyhook::create_inline(reinterpret_cast<void *>(*g_BaseAddress + getFOVOffsetPtr), &hkGetFOV);
 
 		// Read until shutdown requested.
 		logger->LogMessage("Hook::MainLoop() Starting memory read loop indefinitely until shutdown requested...\n");
@@ -871,6 +899,11 @@ namespace SRTPluginRE9::Hook
 			// Sleep until next read operation.
 			Sleep(memoryReadIntervalInMS);
 		}
+
+		// Unhook version-specific hooks.
+		if (getFOVOffsetPtr)
+			oGetFOV.reset();
+
 		logger->LogMessage("Hook::MainLoop() Loop exiting due to g_shutdownRequested state change!\n");
 	}
 }
