@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cfloat>
 #include <cinttypes>
+#include <cstring>
 #include <format>
 #include <functional>
 #include <imgui_impl_dx12.h>
@@ -36,6 +37,8 @@ inline std::mutex g_queueMutex;
 inline ID3D12CommandQueue *g_lastSeenDirectQueue = nullptr;
 
 inline std::atomic g_firstRunPresent = true;
+inline std::atomic g_firstRunLockScene = true;
+inline std::atomic g_firstRunUpdateBehavior = true;
 
 SRTSettings g_SRTSettings;
 SRTPluginRE9::GameVersion::GameVersion g_GameVersion;
@@ -45,7 +48,20 @@ uintptr_t getCameraFOVIDOffsetPtr;
 uintptr_t getModeOffsetPtr;
 uintptr_t getTypeOffsetPtr;
 
+// Render-only FOV decouple. These two are absolute addresses the via-runtime object (NOT *g_BaseAddress + offset);
+// they are not reachable from the module base. Set per game version in MainLoop(). If a version's values are
+// unknown (left 0) the render-FOV feature simply stays off (ResolveAppEntry() finds nothing -> no hooks).
+uintptr_t viaApplicationPtr;
+uintptr_t viaSceneManagerPtr;
+
 SafetyHookInline oGetFOV{};
+SafetyHookInline oLockScene{};
+SafetyHookInline oUpdateBehavior{};
+
+// Desired render FOV for the current mode/type (computed in hkGetFOV) and the gameplay FOV captured at
+// LockScene so it can be restored before the next UpdateBehavior. Only the render projection sees the wide FOV.
+std::atomic<float> g_DesiredRenderFOV = 0.0f;
+float g_SavedGameplayFOV = 0.0f;
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
@@ -99,40 +115,180 @@ namespace SRTPluginRE9::Hook
 	    ManagedContext *ctx,                      // RCX - Runtime context
 	    PlayerCameraFOVCalc *playerCameraFOVCalc) // RDX - This pointer
 	{
-		// Get the original FOV value.
+		// Get the original (gameplay) FOV value. This is what interaction, aim, and all gameplay must keep,
+		// so we ALWAYS return it unchanged below.
 		auto originalValue = oGetFOV.call<float, ManagedContext *, PlayerCameraFOVCalc *>(ctx, playerCameraFOVCalc);
 
-		// Define the fov mode and type variables.
-		auto cameraFOVMode = app::PlayerMode::TPS;
-		auto cameraFOVType = app::PlayerCameraFOVParam::TemplateType::Default;
+		// Compute the user's desired RENDER FOV for the current mode/type. We do NOT return it here; it is
+		// applied only to the render projection in hkLockScene() and reverted in hkUpdateBehavior().
+		float desiredRenderFOV = originalValue;
 
 		// Call getCameraFOVID() to get a pointer to the class that has the mode and type information.
 		auto *cameraFOVID = playerCameraFOVCalc->getCameraFOVID(ctx);
 		if (cameraFOVID)
 		{
 			// Get the mode and type.
-			cameraFOVMode = cameraFOVID->get_Mode(ctx);
-			cameraFOVType = cameraFOVID->get_Type(ctx);
+			auto cameraFOVMode = cameraFOVID->get_Mode(ctx);
+			auto cameraFOVType = cameraFOVID->get_Type(ctx);
 
-			// Return the appropriate FOV the user desires based on the current mode and type.
+			// Pick the FOV the user desires based on the current mode and type.
 			if (cameraFOVMode == app::PlayerMode::TPS)
 			{
 				if (cameraFOVType == app::PlayerCameraFOVParam::TemplateType::Default)
-					return g_SRTSettings.FOVTPSNormal;
+					desiredRenderFOV = g_SRTSettings.FOVTPSNormal;
 				else if (cameraFOVType == app::PlayerCameraFOVParam::TemplateType::Hold)
-					return g_SRTSettings.FOVTPSADS;
+					desiredRenderFOV = g_SRTSettings.FOVTPSADS;
 			}
 			else if (cameraFOVMode == app::PlayerMode::FPS)
 			{
 				if (cameraFOVType == app::PlayerCameraFOVParam::TemplateType::Default)
-					return g_SRTSettings.FOVFPSNormal;
+					desiredRenderFOV = g_SRTSettings.FOVFPSNormal;
 				else if (cameraFOVType == app::PlayerCameraFOVParam::TemplateType::Hold)
-					return g_SRTSettings.FOVFPSADS;
+					desiredRenderFOV = g_SRTSettings.FOVFPSADS;
 			}
 		}
 
-		// If we did not get a valid pointer or we fell through the if statements, just return original, unchanged value.
+		// Publish the desired render FOV for the LockScene/UpdateBehavior bracket; gameplay keeps originalValue.
+		g_DesiredRenderFOV.store(desiredRenderFOV);
 		return originalValue;
+	}
+
+	// Render-only FOV: RE Engine via.Application pipeline-entry + camera chain ---
+	constexpr uintptr_t kEntryArrayOffset = 0x818ULL; // via.Application + this = entry[0]
+	constexpr uintptr_t kEntryStride = 0xC8ULL;
+	constexpr uintptr_t kEntryFuncOffset = 0x08ULL;        // JIT execute thunk (SafetyHook target)
+	constexpr uintptr_t kEntryNameOffset = 0x10ULL;        // const char* description (null-terminated)
+	constexpr uintptr_t kSceneMgrMainViewOffset = 0x88ULL; // via.SceneManager -> via.SceneView
+	constexpr uintptr_t kSceneViewPrimCamOffset = 0x90ULL; // via.SceneView -> via.Camera (PrimaryCamera; 144 dec = 0x90)
+	constexpr uintptr_t kCameraFovOffset = 0x38ULL;        // via.Camera fov (float)
+
+	// Resolve the JIT execute thunk for a named pipeline entry by walking via.Application's entry array and
+	// matching the description string. The thunk address is per-RUN, so this must run each launch. Returns
+	// nullptr (feature stays off) if via.Application is unset/invalid or the entry is not found.
+	void *ResolveAppEntry(const char *name)
+	{
+		__try
+		{
+			if (name == nullptr)
+			{
+				logger->LogMessage("Hook::ResolveAppEntry() Supplied name is null! Aborting.\n");
+				return nullptr;
+			}
+
+			if (!viaApplicationPtr)
+			{
+				logger->LogMessage("Hook::ResolveAppEntry() via.Application pointer is null! Aborting search for {}.\n", name);
+				return nullptr;
+			}
+
+			const uintptr_t entries = viaApplicationPtr + kEntryArrayOffset;
+			for (int i = 0; i < 1024; ++i)
+			{
+				const uintptr_t entry = entries + static_cast<uintptr_t>(i) * kEntryStride;
+				const char *desc = *reinterpret_cast<const char *const *>(entry + kEntryNameOffset);
+				if (desc != nullptr && std::strcmp(desc, name) == 0)
+				{
+					auto fnPtr = *reinterpret_cast<void *const *>(entry + kEntryFuncOffset);
+					logger->LogMessage("Hook::ResolveAppEntry() Found {} at {:p}\n", name, fnPtr);
+					return fnPtr;
+				}
+			}
+
+			logger->LogMessage("Hook::ResolveAppEntry() No results found for {}.\n", name);
+			return nullptr;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			logger->LogMessage("Hook::ResolveAppEntry() Exception occurred searching for {}.\n", name);
+			return nullptr;
+		}
+	}
+
+	// via.SceneManager -> MainView (field) -> PrimaryCamera (field) -> &fov. Unguarded; callers wrap in SEH.
+	float *ResolveCameraFovField()
+	{
+		if (!viaSceneManagerPtr)
+		{
+			logger->LogMessage("Hook::ResolveCameraFovField() via.SceneManager pointer is null!\n");
+			return nullptr;
+		}
+
+		const uintptr_t view = *reinterpret_cast<const uintptr_t *>(viaSceneManagerPtr + kSceneMgrMainViewOffset);
+		if (!view)
+		{
+			logger->LogMessage("Hook::ResolveCameraFovField() View pointer is null!\n");
+			return nullptr;
+		}
+
+		const uintptr_t camera = *reinterpret_cast<const uintptr_t *>(view + kSceneViewPrimCamOffset);
+		if (!camera)
+		{
+			logger->LogMessage("Hook::ResolveCameraFovField() Camera pointer is null!\n");
+			return nullptr;
+		}
+
+		return reinterpret_cast<float *>(camera + kCameraFovOffset);
+	}
+
+	bool TryReadCameraFov(float &out)
+	{
+		__try
+		{
+			float *p = ResolveCameraFovField();
+			if (!p)
+				return false;
+			out = *p;
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			logger->LogMessage("Hook::TryReadCameraFov() Exception occurred.\n");
+			return false;
+		}
+	}
+
+	bool TryWriteCameraFov(float value)
+	{
+		__try
+		{
+			float *p = ResolveCameraFovField();
+			if (!p)
+				return false;
+			*p = value;
+			return true;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			logger->LogMessage("Hook::TryWriteCameraFov() Exception occurred.\n");
+			return false;
+		}
+	}
+
+	// Runs at the LockScene pipeline stage (after all gameplay/interaction). Swap in the wide render FOV.
+	void hkLockScene(void *entry)
+	{
+		if (g_SRTSettings.FOVEnable)
+		{
+			const float desired = g_DesiredRenderFOV.load();
+			if (desired > 1.0f)
+			{
+				float current = 0.0f;
+				if (TryReadCameraFov(current) && TryWriteCameraFov(desired))
+					g_SavedGameplayFOV = current;
+			}
+		}
+		oLockScene.call<void, void *>(entry);
+	}
+
+	// Runs at the UpdateBehavior pipeline stage (before gameplay/interaction). Restore the gameplay FOV.
+	void hkUpdateBehavior(void *entry)
+	{
+		if (g_SavedGameplayFOV > 1.0f)
+		{
+			TryWriteCameraFov(g_SavedGameplayFOV);
+			g_SavedGameplayFOV = 0.0f;
+		}
+		oUpdateBehavior.call<void, void *>(entry);
 	}
 
 	LRESULT CALLBACK hkWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -764,6 +920,8 @@ namespace SRTPluginRE9::Hook
 				getCameraFOVIDOffsetPtr = 0x52C270ULL;
 				getModeOffsetPtr = 0x623F7D0ULL;
 				getTypeOffsetPtr = 0x6243300ULL;
+				viaApplicationPtr = 0x14D3C0C0ULL;  // ABSOLUTE via.Application object (verify per-run stability)
+				viaSceneManagerPtr = 0x16F992F0ULL; // ABSOLUTE via.SceneManager object
 				break;
 			}
 
@@ -795,6 +953,13 @@ namespace SRTPluginRE9::Hook
 		// Hook version-specific hooks.
 		if (getFOVOffsetPtr)
 			oGetFOV = safetyhook::create_inline(reinterpret_cast<void *>(*g_BaseAddress + getFOVOffsetPtr), &hkGetFOV);
+
+		// Render-only FOV: hook the pipeline phases by name (thunk addresses are per-run). If the version's
+		// via.Application address is unknown/wrong, ResolveAppEntry() returns nullptr and these stay unhooked.
+		if (void *lockSceneFn = ResolveAppEntry("LockScene"))
+			oLockScene = safetyhook::create_inline(lockSceneFn, &hkLockScene);
+		if (void *updateBehaviorFn = ResolveAppEntry("UpdateBehavior"))
+			oUpdateBehavior = safetyhook::create_inline(updateBehaviorFn, &hkUpdateBehavior);
 
 		// Read until shutdown requested.
 		logger->LogMessage("Hook::MainLoop() Starting memory read loop indefinitely until shutdown requested...\n");
@@ -903,6 +1068,8 @@ namespace SRTPluginRE9::Hook
 		// Unhook version-specific hooks.
 		if (getFOVOffsetPtr)
 			oGetFOV.reset();
+		oLockScene.reset();
+		oUpdateBehavior.reset();
 
 		logger->LogMessage("Hook::MainLoop() Loop exiting due to g_shutdownRequested state change!\n");
 	}

@@ -52,6 +52,7 @@ struct SRTSettings
 	float_t DPIScalingFactor = 0.f;  // Default to 0 so automatic calculation occurs. See UI.cpp.
 	float_t FontScalingFactor = 0.f; // Default to 0 so automatic calculation occurs. See UI.cpp.
 
+	uint32_t FOVEnable = 0U; // Enables FOV mod. Shows FOV options in the settings. Default: false.
 	float_t FOVTPSNormal = 40.f;
 	float_t FOVTPSADS = 25.f;
 	float_t FOVFPSNormal = 46.f;

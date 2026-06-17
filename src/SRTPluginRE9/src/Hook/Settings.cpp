@@ -122,6 +122,8 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 		readSuccess = TryReadSetting(inputStringView, "FontScalingFactor=", g_SRTSettings.FontScalingFactor);
 
 	if (!readSuccess)
+		readSuccess = TryReadSetting(inputStringView, "FOVEnable=", g_SRTSettings.FOVEnable);
+	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "FOVTPSNormal=", g_SRTSettings.FOVTPSNormal);
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "FOVTPSADS=", g_SRTSettings.FOVTPSADS);
@@ -191,6 +193,7 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 	out_buf->appendf("DPIScalingFactor=%f\n", g_SRTSettings.DPIScalingFactor);
 	out_buf->appendf("FontScalingFactor=%f\n", g_SRTSettings.FontScalingFactor);
 
+	out_buf->appendf("FOVEnable=%d\n", g_SRTSettings.FOVEnable);
 	out_buf->appendf("FOVTPSNormal=%f\n", g_SRTSettings.FOVTPSNormal);
 	out_buf->appendf("FOVTPSADS=%f\n", g_SRTSettings.FOVTPSADS);
 	out_buf->appendf("FOVFPSNormal=%f\n", g_SRTSettings.FOVFPSNormal);

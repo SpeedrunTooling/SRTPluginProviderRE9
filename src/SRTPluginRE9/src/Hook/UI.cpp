@@ -172,10 +172,14 @@ namespace SRTPluginRE9::Hook
 		}
 
 		// FOV
-		ImGui::SliderFloat("Third-Person Normal FOV", &g_SRTSettings.FOVTPSNormal, 15.0f, 120.0f, "%.0f");
-		ImGui::SliderFloat("Third-Person ADS FOV", &g_SRTSettings.FOVTPSADS, 15.0f, 120.0f, "%.0f");
-		ImGui::SliderFloat("First-Person Normal FOV", &g_SRTSettings.FOVFPSNormal, 15.0f, 120.0f, "%.0f");
-		ImGui::SliderFloat("First-Person ADS FOV", &g_SRTSettings.FOVFPSADS, 15.0f, 120.0f, "%.0f");
+		ImGui::Checkbox("Enable FOV Mod", reinterpret_cast<bool *>(&g_SRTSettings.FOVEnable));
+		if (g_SRTSettings.FOVEnable)
+		{
+			ImGui::SliderFloat("Third-Person Normal FOV", &g_SRTSettings.FOVTPSNormal, 15.0f, 120.0f, "%.0f");
+			ImGui::SliderFloat("Third-Person ADS FOV", &g_SRTSettings.FOVTPSADS, 15.0f, 120.0f, "%.0f");
+			ImGui::SliderFloat("First-Person Normal FOV", &g_SRTSettings.FOVFPSNormal, 15.0f, 120.0f, "%.0f");
+			ImGui::SliderFloat("First-Person ADS FOV", &g_SRTSettings.FOVFPSADS, 15.0f, 120.0f, "%.0f");
+		}
 
 		ImGui::Checkbox("Show customization options", reinterpret_cast<bool *>(&g_SRTSettings.ShowCustomizationOptions));
 		if (g_SRTSettings.ShowCustomizationOptions)
