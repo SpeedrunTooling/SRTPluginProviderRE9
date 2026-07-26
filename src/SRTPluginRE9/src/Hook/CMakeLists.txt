@@ -67,6 +67,7 @@ target_sources(${PROJECT_NAME}
         Process.cpp
         Thread.cpp
         GameVersion.cpp
+        CrashHandler.cpp
         DllMain.cpp
 )
 
@@ -81,7 +82,7 @@ target_include_directories(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
     PUBLIC imgui::imgui
-    PRIVATE safetyhook magic_enum::magic_enum d3d12 d3dcompiler dxgi dinput8 dxguid dbghelp
+    PRIVATE safetyhook magic_enum::magic_enum d3d12 d3dcompiler dxgi dinput8 dxguid dbghelp psapi
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

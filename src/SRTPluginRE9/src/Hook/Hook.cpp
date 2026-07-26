@@ -4,6 +4,7 @@
 
 #include "Hook.h"
 #include "CompositeOrderer.h"
+#include "CrashHandler.h"
 #include "GameVersion.h"
 #include "Globals.h"
 #include "Render.h"
@@ -43,6 +44,7 @@ inline std::atomic g_firstRunUpdateBehavior = true;
 SRTSettings g_SRTSettings;
 SRTPluginRE9::GameVersion::GameVersion g_GameVersion;
 
+#ifdef SRT_FEATURE_FOV
 uintptr_t getFOVOffsetPtr;
 uintptr_t getCameraFOVIDOffsetPtr;
 uintptr_t getModeOffsetPtr;
@@ -62,11 +64,43 @@ SafetyHookInline oUpdateBehavior{};
 // LockScene so it can be restored before the next UpdateBehavior. Only the render projection sees the wide FOV.
 std::atomic<float> g_DesiredRenderFOV = 0.0f;
 float g_SavedGameplayFOV = 0.0f;
+#endif
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 namespace SRTPluginRE9::Hook
 {
+	// Copies a version label into the crash context. Plain char array, no allocation, so the
+	// exception filter can read it without touching the heap.
+	static void SetCrashContextGameVersion(const char *name) noexcept
+	{
+		auto &crashContext = CrashHandler::g_CrashContext;
+		size_t i = 0;
+		while (i + 1 < sizeof(crashContext.GameVersionName) && name[i] != '\0')
+		{
+			crashContext.GameVersionName[i] = name[i];
+			++i;
+		}
+		crashContext.GameVersionName[i] = '\0';
+	}
+
+	[[nodiscard]] std::optional<std::uintptr_t> get_module_base(const wchar_t *module_name) noexcept
+	{
+		__try
+		{
+			auto module = GetModuleHandleW(module_name);
+			if (module == nullptr)
+				return std::nullopt;
+			return reinterpret_cast<std::uintptr_t>(module);
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER)
+		{
+			return std::nullopt;
+		}
+	}
+
+#ifdef SRT_FEATURE_FOV
+
 	class CameraFOVCatalogUserData_ID
 	{
 	public:
@@ -95,21 +129,6 @@ namespace SRTPluginRE9::Hook
 			return fn(ctx, this);
 		}
 	};
-
-	[[nodiscard]] std::optional<std::uintptr_t> get_module_base(const wchar_t *module_name) noexcept
-	{
-		__try
-		{
-			auto module = GetModuleHandleW(module_name);
-			if (module == nullptr)
-				return std::nullopt;
-			return reinterpret_cast<std::uintptr_t>(module);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER)
-		{
-			return std::nullopt;
-		}
-	}
 
 	float hkGetFOV(
 	    ManagedContext *ctx,                      // RCX - Runtime context
@@ -290,6 +309,7 @@ namespace SRTPluginRE9::Hook
 		}
 		oUpdateBehavior.call<void, void *>(entry);
 	}
+#endif
 
 	LRESULT CALLBACK hkWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
@@ -308,6 +328,17 @@ namespace SRTPluginRE9::Hook
 				logger->LogMessage("Hook - F8 pressed, shutting down...\n");
 				g_shutdownRequested.store(true);
 			}
+#ifdef TESTBUILD
+			else if (wParam == VK_F9 && g_SRTSettings.DebugEnable)
+			{
+				// Exercises the crash handler end to end. Deliberately the same shape as the
+				// faults we are trying to make analyzable — a read from -1, raised on the
+				// game's own message thread rather than one of ours. Debug builds only:
+				// DebugEnable is not exposed in the UI.
+				logger->LogMessage("Hook - F9 pressed, forcing a test crash...\n");
+				(void)*reinterpret_cast<volatile const uint8_t *>(~static_cast<uintptr_t>(0));
+			}
+#endif
 		}
 
 		// Protect against this section being called before ImGui context is setup.
@@ -595,6 +626,11 @@ namespace SRTPluginRE9::Hook
 
 		const auto firstRun = g_firstRunPresent.exchange(false);
 
+		// Our UI code runs on the game's render thread, so give that thread the same
+		// stack-overflow headroom we give our own.
+		if (firstRun)
+			CrashHandler::ReserveStackForCrashHandling();
+
 		ImGui_ImplDX12_NewFrame();
 		ImGui_ImplWin32_NewFrame();
 		ImGui::NewFrame();
@@ -847,6 +883,9 @@ namespace SRTPluginRE9::Hook
 
 		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
 
+		// Leave headroom so a stack-overflow crash on this thread can still be dumped.
+		CrashHandler::ReserveStackForCrashHandling();
+
 		hResult = SRTPluginRE9::Thread::SetThreadName(GetCurrentThread(), std::format("{} {} Main Thread", SRTPluginRE9::GameNameShort, SRTPluginRE9::ToolNameShort));
 		if (FAILED(hResult))
 			logger->LogMessage("Hook::ThreadMain() failed to set thread description: {:d}\n", static_cast<uint32_t>(hResult));
@@ -881,90 +920,172 @@ namespace SRTPluginRE9::Hook
 		// Detect game version and set base pointers.
 		auto gameVersion = SRTPluginRE9::GameVersion::DetectGameVersion();
 		if (!gameVersion.has_value())
+		{
+			// Calling .value() here would throw std::bad_expected_access, and nothing on this
+			// thread catches it — that terminates the whole game. Stay loaded and idle instead
+			// so the overlay can explain itself and F8 still shuts us down cleanly.
 			logger->LogMessage("Hook::MainLoop() unable to detect game version: {}\n", gameVersion.error().c_str());
+			logger->LogMessage("Hook::MainLoop() Memory reads disabled. The overlay will stay loaded but show no data.\n");
+			SetCrashContextGameVersion("<detection failed>");
+			g_SRTStatus.store(SRTStatus::VersionDetectionFailed, std::memory_order_release);
+
+			while (!g_shutdownRequested.load())
+				Sleep(memoryReadIntervalInMS);
+
+			logger->LogMessage("Hook::MainLoop() Idle loop exiting due to g_shutdownRequested state change!\n");
+			return;
+		}
 
 		g_GameVersion = gameVersion.value();
 		switch (g_GameVersion)
 		{
 			default:
+			case GameVersion::GameVersion::Unknown:
+			{
+				// A checksum that matches nothing known means the game patched. Offsets often
+				// move with it, so this is a guess, not a supported configuration — say so
+				// loudly rather than letting it fall through `default:` unremarked.
+				logger->LogMessage("Hook::MainLoop() WARNING: Unrecognised game version. Readings may be wrong or empty.\n");
+				SetCrashContextGameVersion("Unknown");
+				g_SRTStatus.store(SRTStatus::UnrecognisedGameVersion, std::memory_order_release);
+				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E9E1190ULL)).deref();
+				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E999618ULL)).deref();
+
+				// Deliberately leave the FOV/scene offsets at zero so the version-specific
+				// hooks below stay unattached. Reading a wrong address is harmless — every
+				// dereference is SEH-guarded — but writing a detour to a guessed *code*
+				// address would corrupt whatever function actually lives there.
+				break;
+			}
+
 			case GameVersion::GameVersion::WW_20260508_1: // 1.3.0.0
 			{
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260508_1\n");
+				SetCrashContextGameVersion("WW_20260508_1");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E9E1190ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E999618ULL)).deref();
+#ifdef SRT_FEATURE_FOV
 				getFOVOffsetPtr = 0x5020A0ULL;
 				getCameraFOVIDOffsetPtr = 0x502620ULL;
 				getModeOffsetPtr = 0x6400cf0ULL;
 				getTypeOffsetPtr = 0x6404880ULL;
+#endif
 				break;
 			}
 
 			case GameVersion::GameVersion::WW_20260327_1: // 1.2.0.0
 			{
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260327_1\n");
+				SetCrashContextGameVersion("WW_20260327_1");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E8C7750ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E90FE10ULL)).deref();
+#ifdef SRT_FEATURE_FOV
 				getFOVOffsetPtr = 0x508950ULL;
 				getCameraFOVIDOffsetPtr = 0x508ED0ULL;
 				getModeOffsetPtr = 0x634B400ULL;
 				getTypeOffsetPtr = 0x634EF30ULL;
+#endif
 				break;
 			}
 
 			case GameVersion::GameVersion::WW_20260313_1: // 1.1.2.0
 			{
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260313_1\n");
+				SetCrashContextGameVersion("WW_20260313_1");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E815400ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E843CF8ULL)).deref();
+#ifdef SRT_FEATURE_FOV
 				getFOVOffsetPtr = 0x52BCF0ULL;
 				getCameraFOVIDOffsetPtr = 0x52C270ULL;
 				getModeOffsetPtr = 0x623F7D0ULL;
 				getTypeOffsetPtr = 0x6243300ULL;
 				viaApplicationPtr = 0x14D3C0C0ULL;  // ABSOLUTE via.Application object (verify per-run stability)
 				viaSceneManagerPtr = 0x16F992F0ULL; // ABSOLUTE via.SceneManager object
+#endif
 				break;
 			}
 
 			case GameVersion::GameVersion::WW_20260305_1: // 1.1.1.0
 			{
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260305_1\n");
+				SetCrashContextGameVersion("WW_20260305_1");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E816400ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E844CF8ULL)).deref();
+#ifdef SRT_FEATURE_FOV
 				getFOVOffsetPtr = 0x52C300ULL;
 				getCameraFOVIDOffsetPtr = 0x52C880ULL;
 				getModeOffsetPtr = 0x623F7B0ULL;
 				getTypeOffsetPtr = 0x62432E0ULL;
+#endif
 				break;
 			}
 
 			case GameVersion::GameVersion::WW_20260225_1: // 1.0.0.0
 			{
 				logger->LogMessage("Hook::MainLoop() Game version: WW_20260225_1\n");
+				SetCrashContextGameVersion("WW_20260225_1");
 				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E857F30ULL)).deref();
 				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E8377C8ULL)).deref();
+#ifdef SRT_FEATURE_FOV
 				getFOVOffsetPtr = 0x52E5A0ULL;
 				getCameraFOVIDOffsetPtr = 0x52EB20ULL;
 				getModeOffsetPtr = 0x622CBA0ULL;
 				getTypeOffsetPtr = 0x62306D0ULL;
+#endif
 				break;
 			}
 		}
 
-		// Hook version-specific hooks.
+#ifdef SRT_FEATURE_FOV
+		// Hook version-specific hooks. These patch game code rather than an API vtable, so
+		// they are the ones a crash report most needs to account for — record each target and
+		// whether the detour actually took.
 		if (getFOVOffsetPtr)
-			oGetFOV = safetyhook::create_inline(reinterpret_cast<void *>(*g_BaseAddress + getFOVOffsetPtr), &hkGetFOV);
+		{
+			void *getFOVFn = reinterpret_cast<void *>(*g_BaseAddress + getFOVOffsetPtr);
+			oGetFOV = safetyhook::create_inline(getFOVFn, &hkGetFOV);
+			CrashHandler::RecordHook("GetFOV", getFOVFn);
+			CrashHandler::MarkHookInstalled("GetFOV", static_cast<bool>(oGetFOV));
+		}
 
 		// Render-only FOV: hook the pipeline phases by name (thunk addresses are per-run). If the version's
 		// via.Application address is unknown/wrong, ResolveAppEntry() returns nullptr and these stay unhooked.
 		if (void *lockSceneFn = ResolveAppEntry("LockScene"))
+		{
 			oLockScene = safetyhook::create_inline(lockSceneFn, &hkLockScene);
+			CrashHandler::RecordHook("LockScene", lockSceneFn);
+			CrashHandler::MarkHookInstalled("LockScene", static_cast<bool>(oLockScene));
+		}
 		if (void *updateBehaviorFn = ResolveAppEntry("UpdateBehavior"))
+		{
 			oUpdateBehavior = safetyhook::create_inline(updateBehaviorFn, &hkUpdateBehavior);
+			CrashHandler::RecordHook("UpdateBehavior", updateBehaviorFn);
+			CrashHandler::MarkHookInstalled("UpdateBehavior", static_cast<bool>(oUpdateBehavior));
+		}
+#endif
+
+		// Publish the resolved pointers so a crash report shows what we were reading through.
+		{
+			auto &crashContext = CrashHandler::g_CrashContext;
+			crashContext.GameBaseAddress = g_BaseAddress.value_or(0);
+			crashContext.RankManager = reinterpret_cast<uintptr_t>(rankManager.get());
+			crashContext.CharacterManager = reinterpret_cast<uintptr_t>(characterManager.get());
+		}
+
+		// Don't overwrite the unrecognised-version warning; that one has to stay visible.
+		{
+			auto expected = SRTStatus::Loading;
+			g_SRTStatus.compare_exchange_strong(expected, SRTStatus::Running, std::memory_order_acq_rel);
+		}
 
 		// Read until shutdown requested.
 		logger->LogMessage("Hook::MainLoop() Starting memory read loop indefinitely until shutdown requested...\n");
 		while (!g_shutdownRequested.load())
 		{
+			// Heartbeat, so a crash report distinguishes "SRT was mid-read" from
+			// "SRT never got going" or "SRT had been idle".
+			CrashHandler::g_CrashContext.ReadLoopIterations.fetch_add(1, std::memory_order_relaxed);
+
 			// Acquire an index to buffer data write into and get a reference to that data buffer.
 			auto writeIndex = 1U - g_GameDataBufferReadIndex.load(std::memory_order_acquire);
 			auto &localGameData = g_GameDataBuffers[writeIndex];
@@ -1065,11 +1186,13 @@ namespace SRTPluginRE9::Hook
 			Sleep(memoryReadIntervalInMS);
 		}
 
+#ifdef SRT_FEATURE_FOV
 		// Unhook version-specific hooks.
 		if (getFOVOffsetPtr)
 			oGetFOV.reset();
 		oLockScene.reset();
 		oUpdateBehavior.reset();
+#endif
 
 		logger->LogMessage("Hook::MainLoop() Loop exiting due to g_shutdownRequested state change!\n");
 	}

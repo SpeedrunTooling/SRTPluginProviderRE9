@@ -9,6 +9,7 @@
 #define NOMINMAX
 #endif
 
+#include "DefineFeatures.h"
 #include <Windows.h>
 #include <cmath>
 #include <cstdint>
@@ -154,6 +155,7 @@ struct ManagedList // 0x20 (32)
 };
 #pragma warning(pop)
 
+#ifdef SRT_FEATURE_FOV
 namespace app
 {
 	enum class PlayerMode : std::int32_t
@@ -171,6 +173,7 @@ namespace app
 		};
 	}
 }
+#endif
 
 struct ManagedContext;
 

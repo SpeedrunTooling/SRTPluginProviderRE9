@@ -18,6 +18,19 @@
 
 namespace SRTPluginRE9::Hook
 {
+	// Shown wherever there is no game data to display. "Loading" is only honest at startup —
+	// if version detection failed we are never going to have data, and saying so beats leaving
+	// the user watching a spinner that will never resolve.
+	static const char *NoDataMessage()
+	{
+		// Detection failure is terminal — no read will ever land, so don't imply otherwise.
+		// An unrecognised version still reads (on guessed offsets), so "loading" stays correct
+		// there; DrawOverlayGameInfo carries the standing warning for that case instead.
+		if (g_SRTStatus.load(std::memory_order_acquire) == SRTStatus::VersionDetectionFailed)
+			return "Could not identify re9.exe - no data. See the log (F7).";
+		return "SRT is loading...";
+	}
+
 	UI::UI()
 	{
 		logger->LogMessage("UI::UI() called.\n");
@@ -171,6 +184,7 @@ namespace SRTPluginRE9::Hook
 			}
 		}
 
+#ifdef SRT_FEATURE_FOV
 		// FOV
 		ImGui::Checkbox("Enable FOV Mod", reinterpret_cast<bool *>(&g_SRTSettings.FOVEnable));
 		if (g_SRTSettings.FOVEnable)
@@ -180,6 +194,7 @@ namespace SRTPluginRE9::Hook
 			ImGui::SliderFloat("First-Person Normal FOV", &g_SRTSettings.FOVFPSNormal, 15.0f, 120.0f, "%.0f");
 			ImGui::SliderFloat("First-Person ADS FOV", &g_SRTSettings.FOVFPSADS, 15.0f, 120.0f, "%.0f");
 		}
+#endif
 
 		ImGui::Checkbox("Show customization options", reinterpret_cast<bool *>(&g_SRTSettings.ShowCustomizationOptions));
 		if (g_SRTSettings.ShowCustomizationOptions)
@@ -431,8 +446,18 @@ namespace SRTPluginRE9::Hook
 			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
 			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
 
+			// A standing warning, not a one-off: on an unrecognised build every number below
+			// is read through guessed offsets, so the user needs to distrust them for as long
+			// as they are on screen.
+			if (g_SRTStatus.load(std::memory_order_acquire) == SRTStatus::UnrecognisedGameVersion)
+			{
+				ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Unsupported game version!");
+				ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Values may be wrong.");
+				ImGui::Separator();
+			}
+
 			if (!localBufferedGameData.HasData)
-				ImGui::Text("SRT is loading...");
+				ImGui::TextUnformatted(NoDataMessage());
 			else
 			{
 				const auto &localGameData = localBufferedGameData.Data;
@@ -464,7 +489,7 @@ namespace SRTPluginRE9::Hook
 			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
 
 			if (!localBufferedGameData.HasData)
-				ImGui::Text("SRT is loading...");
+				ImGui::TextUnformatted(NoDataMessage());
 			else
 			{
 				const auto &localGameData = localBufferedGameData.Data;
@@ -503,7 +528,7 @@ namespace SRTPluginRE9::Hook
 			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
 
 			if (!localBufferedGameData.HasData)
-				ImGui::Text("SRT is loading...");
+				ImGui::TextUnformatted(NoDataMessage());
 			else
 			{
 				// const auto &localGameData = localBufferedGameData.Data;
@@ -534,7 +559,7 @@ namespace SRTPluginRE9::Hook
 			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
 
 			if (!localBufferedGameData.HasData)
-				ImGui::Text("SRT is loading...");
+				ImGui::TextUnformatted(NoDataMessage());
 			else
 			{
 				const auto &localGameData = localBufferedGameData.Data;

@@ -11,6 +11,7 @@
 
 #include "DInput8Hook.h"
 #include "DX12Hook.h"
+#include "DefineFeatures.h"
 #include "GameObjects.h"
 #include "Protected_Ptr.h"
 #include <expected>

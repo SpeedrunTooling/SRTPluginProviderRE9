@@ -1,4 +1,5 @@
 #include "DX12Hook.h"
+#include "CrashHandler.h"
 #include "Globals.h"
 #include "Logo.h"
 #include "Render.h"
@@ -128,6 +129,11 @@ namespace SRTPluginRE9::DX12Hook
 		    "  ResizeBuffers={:p}\n"
 		    "  ExecuteCommandLists={:p}\n",
 		    vtableAddresses.present, vtableAddresses.resizeBuffers, vtableAddresses.executeCommandLists);
+
+		// Recorded so a crash report can name the module that actually owns each target.
+		SRTPluginRE9::Hook::CrashHandler::RecordHook("Present", vtableAddresses.present);
+		SRTPluginRE9::Hook::CrashHandler::RecordHook("ResizeBuffers", vtableAddresses.resizeBuffers);
+		SRTPluginRE9::Hook::CrashHandler::RecordHook("ExecuteCommandLists", vtableAddresses.executeCommandLists);
 	}
 
 	DX12Hook &DX12Hook::GetInstance() // Return the singleton instance of this class.
@@ -151,6 +157,13 @@ namespace SRTPluginRE9::DX12Hook
 		oPresent = safetyhook::create_inline(vtableAddresses.present, reinterpret_cast<void *>(hkPresent));
 		oResizeBuffers = safetyhook::create_inline(vtableAddresses.resizeBuffers, reinterpret_cast<void *>(hkResizeBuffers));
 		oExecuteCommandLists = safetyhook::create_inline(vtableAddresses.executeCommandLists, reinterpret_cast<void *>(hkExecuteCommandLists));
+
+		// create_inline reports failure through a falsy hook rather than an exception, so
+		// record what actually took — a crash report otherwise can't tell a live detour from
+		// one that silently never installed.
+		SRTPluginRE9::Hook::CrashHandler::MarkHookInstalled("Present", static_cast<bool>(oPresent));
+		SRTPluginRE9::Hook::CrashHandler::MarkHookInstalled("ResizeBuffers", static_cast<bool>(oResizeBuffers));
+		SRTPluginRE9::Hook::CrashHandler::MarkHookInstalled("ExecuteCommandLists", static_cast<bool>(oExecuteCommandLists));
 
 		logger->LogMessage("DX12Hook::AttachHooks() - All DX12 hooks attached.\n");
 		return true;

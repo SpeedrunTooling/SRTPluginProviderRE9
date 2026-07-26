@@ -34,7 +34,11 @@ add_link_options(
     "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:MINSIZEREL>,$<CONFIG:RELWITHDEBINFO>>:/LTCG>"
     "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:MINSIZEREL>,$<CONFIG:RELWITHDEBINFO>>:/INCREMENTAL:NO>"
     "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:MINSIZEREL>,$<CONFIG:RELWITHDEBINFO>>:/OPT:REF>"
-    "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:MINSIZEREL>,$<CONFIG:RELWITHDEBINFO>>:/OPT:ICF>"
+    # /OPT:ICF folds identical functions onto one address, which makes crash stacks name the
+    # wrong function. RelWithDebInfo is the configuration we ship symbols for and analyse
+    # dumps against, so it trades a little size for stacks we can trust.
+    "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:MINSIZEREL>>:/OPT:ICF>"
+    "$<$<CONFIG:RELWITHDEBINFO>:/OPT:NOICF>"
 )
 add_compile_definitions(
     "$<$<OR:$<CONFIG:RELEASE>,$<CONFIG:MINSIZEREL>,$<CONFIG:RELWITHDEBINFO>>:RELEASE>"

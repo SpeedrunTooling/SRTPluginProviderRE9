@@ -5,6 +5,7 @@
 #define NOMINMAX
 #endif
 
+#include "DefineFeatures.h"
 #include "imgui_internal.h"
 #include <concepts>
 #include <cstdint>
@@ -52,11 +53,18 @@ struct SRTSettings
 	float_t DPIScalingFactor = 0.f;  // Default to 0 so automatic calculation occurs. See UI.cpp.
 	float_t FontScalingFactor = 0.f; // Default to 0 so automatic calculation occurs. See UI.cpp.
 
+#ifdef SRT_FEATURE_FOV
 	uint32_t FOVEnable = 0U; // Enables FOV mod. Shows FOV options in the settings. Default: false.
 	float_t FOVTPSNormal = 40.f;
 	float_t FOVTPSADS = 25.f;
 	float_t FOVFPSNormal = 46.f;
 	float_t FOVFPSADS = 40.f;
+#endif
+
+	// Captures the game's code segments in a crash dump, which is what makes the faulting
+	// instruction disassemblable. Costs a lot of file size — turn it off if a reporter can't
+	// upload the result. The fault site itself is captured either way. Default: true.
+	uint32_t CrashDumpIncludeCodeSegments = 1U;
 
 	// Debug settings, not shown in UI.
 	uint32_t DebugEnable = 0U;                // Enables debug mode. Shows debug options in the settings. Default: false.

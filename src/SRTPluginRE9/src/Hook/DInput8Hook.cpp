@@ -1,4 +1,5 @@
 #include "DInput8Hook.h"
+#include "CrashHandler.h"
 #include "Globals.h"
 #include <safetyhook.hpp>
 
@@ -74,6 +75,11 @@ namespace SRTPluginRE9::DInput8Hook
 		    "  GetDeviceState={:p}\n"
 		    "  GetDeviceData={:p}\n",
 		    vtableAddresses.getDeviceState, vtableAddresses.getDeviceData);
+
+		// Recorded so a crash report can name the module that actually owns each target.
+		// These often resolve into another overlay's detour rather than dinput8.dll itself.
+		SRTPluginRE9::Hook::CrashHandler::RecordHook("GetDeviceState", vtableAddresses.getDeviceState);
+		SRTPluginRE9::Hook::CrashHandler::RecordHook("GetDeviceData", vtableAddresses.getDeviceData);
 	}
 
 	DInput8Hook &DInput8Hook::GetInstance() // Return the singleton instance of this class.
@@ -86,6 +92,10 @@ namespace SRTPluginRE9::DInput8Hook
 	{
 		oGetDeviceState = safetyhook::create_inline(vtableAddresses.getDeviceState, reinterpret_cast<void *>(hkGetDeviceState));
 		oGetDeviceData = safetyhook::create_inline(vtableAddresses.getDeviceData, reinterpret_cast<void *>(hkGetDeviceData));
+
+		// See the note in DX12Hook::AttachHooks — a failed create_inline is silent otherwise.
+		SRTPluginRE9::Hook::CrashHandler::MarkHookInstalled("GetDeviceState", static_cast<bool>(oGetDeviceState));
+		SRTPluginRE9::Hook::CrashHandler::MarkHookInstalled("GetDeviceData", static_cast<bool>(oGetDeviceData));
 
 		logger->LogMessage("DInput8Hook::AttachHooks() - All DInput8 hooks attached.\n");
 		return true;

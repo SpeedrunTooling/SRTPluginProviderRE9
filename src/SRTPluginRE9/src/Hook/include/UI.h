@@ -9,6 +9,7 @@
 #define NOMINMAX
 #endif
 
+#include "DefineFeatures.h"
 #include "Settings.h"
 #include "imgui.h"
 #include <atomic>
