@@ -1,8 +1,9 @@
 #include "DX12Hook.h"
+#include "CrashHandler.h"
 #include "Globals.h"
 #include "Logo.h"
 #include "Render.h"
-#include <MinHook.h>
+#include <safetyhook.hpp>
 
 namespace SRTPluginRE9::DX12Hook
 {
@@ -128,6 +129,11 @@ namespace SRTPluginRE9::DX12Hook
 		    "  ResizeBuffers={:p}\n"
 		    "  ExecuteCommandLists={:p}\n",
 		    vtableAddresses.present, vtableAddresses.resizeBuffers, vtableAddresses.executeCommandLists);
+
+		// Recorded so a crash report can name the module that actually owns each target.
+		SRTPluginRE9::Hook::CrashHandler::RecordHook("Present", vtableAddresses.present);
+		SRTPluginRE9::Hook::CrashHandler::RecordHook("ResizeBuffers", vtableAddresses.resizeBuffers);
+		SRTPluginRE9::Hook::CrashHandler::RecordHook("ExecuteCommandLists", vtableAddresses.executeCommandLists);
 	}
 
 	DX12Hook &DX12Hook::GetInstance() // Return the singleton instance of this class.
@@ -148,23 +154,16 @@ namespace SRTPluginRE9::DX12Hook
 
 	bool DX12Hook::AttachHooks(PFN_Present hkPresent, PFN_ResizeBuffers hkResizeBuffers, PFN_ExecuteCommandLists hkExecuteCommandLists)
 	{
-		if (MH_CreateHook(vtableAddresses.present, reinterpret_cast<void *>(hkPresent), reinterpret_cast<void **>(&oPresent)) != MH_OK)
-		{
-			logger->LogMessage("DX12Hook::AttachHooks() - MH_CreateHook(Present) failed.\n");
-			return false;
-		}
+		oPresent = safetyhook::create_inline(vtableAddresses.present, reinterpret_cast<void *>(hkPresent));
+		oResizeBuffers = safetyhook::create_inline(vtableAddresses.resizeBuffers, reinterpret_cast<void *>(hkResizeBuffers));
+		oExecuteCommandLists = safetyhook::create_inline(vtableAddresses.executeCommandLists, reinterpret_cast<void *>(hkExecuteCommandLists));
 
-		if (MH_CreateHook(vtableAddresses.resizeBuffers, reinterpret_cast<void *>(hkResizeBuffers), reinterpret_cast<void **>(&oResizeBuffers)) != MH_OK)
-		{
-			logger->LogMessage("DX12Hook::AttachHooks() - MH_CreateHook(ResizeBuffers) failed.\n");
-			return false;
-		}
-
-		if (MH_CreateHook(vtableAddresses.executeCommandLists, reinterpret_cast<void *>(hkExecuteCommandLists), reinterpret_cast<void **>(&oExecuteCommandLists)) != MH_OK)
-		{
-			logger->LogMessage("DX12Hook::AttachHooks() - MH_CreateHook(ExecuteCommandLists) failed.\n");
-			return false;
-		}
+		// create_inline reports failure through a falsy hook rather than an exception, so
+		// record what actually took — a crash report otherwise can't tell a live detour from
+		// one that silently never installed.
+		SRTPluginRE9::Hook::CrashHandler::MarkHookInstalled("Present", static_cast<bool>(oPresent));
+		SRTPluginRE9::Hook::CrashHandler::MarkHookInstalled("ResizeBuffers", static_cast<bool>(oResizeBuffers));
+		SRTPluginRE9::Hook::CrashHandler::MarkHookInstalled("ExecuteCommandLists", static_cast<bool>(oExecuteCommandLists));
 
 		logger->LogMessage("DX12Hook::AttachHooks() - All DX12 hooks attached.\n");
 		return true;
@@ -172,23 +171,16 @@ namespace SRTPluginRE9::DX12Hook
 
 	void DX12Hook::DetachHooks()
 	{
-		if (oPresent)
-			MH_DisableHook(vtableAddresses.present);
-		if (oResizeBuffers)
-			MH_DisableHook(vtableAddresses.resizeBuffers);
-		if (oExecuteCommandLists)
-			MH_DisableHook(vtableAddresses.executeCommandLists);
-
-		oPresent = nullptr;
-		oResizeBuffers = nullptr;
-		oExecuteCommandLists = nullptr;
+		oExecuteCommandLists.reset();
+		oResizeBuffers.reset();
+		oPresent.reset();
 
 		logger->LogMessage("DX12Hook::DetachHooks() - All DX12 hooks detached.\n");
 	}
 
-	DX12Hook::PFN_Present DX12Hook::GetOriginalPresent() const { return oPresent; }
-	DX12Hook::PFN_ResizeBuffers DX12Hook::GetOriginalResizeBuffers() const { return oResizeBuffers; }
-	DX12Hook::PFN_ExecuteCommandLists DX12Hook::GetOriginalExecuteCommandLists() const { return oExecuteCommandLists; }
+	DX12Hook::PFN_Present DX12Hook::GetOriginalPresent() const { return oPresent.original<PFN_Present>(); }
+	DX12Hook::PFN_ResizeBuffers DX12Hook::GetOriginalResizeBuffers() const { return oResizeBuffers.original<PFN_ResizeBuffers>(); }
+	DX12Hook::PFN_ExecuteCommandLists DX12Hook::GetOriginalExecuteCommandLists() const { return oExecuteCommandLists.original<PFN_ExecuteCommandLists>(); }
 
 	HRESULT STDMETHODCALLTYPE DX12Hook::Initialize(IDXGISwapChain3 *pSwapChain, LONG_PTR hkWndProc) // Attach hooks and create resources.
 	{

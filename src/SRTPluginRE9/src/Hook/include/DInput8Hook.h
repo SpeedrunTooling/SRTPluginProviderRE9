@@ -12,6 +12,7 @@
 #define DIRECTINPUT_VERSION 0x0800
 
 #include <dinput.h>
+#include <safetyhook.hpp>
 #include <windows.h>
 #include <wrl/client.h>
 
@@ -28,9 +29,9 @@ namespace SRTPluginRE9::DInput8Hook
 	private:
 		DInput8Hook(); // Resolve and store DInput8 VTables.
 
-		// Original function pointers (set by MinHook)
-		PFN_GetDeviceState oGetDeviceState = nullptr;
-		PFN_GetDeviceData oGetDeviceData = nullptr;
+		// Original function pointers (set by SafetyHook)
+		SafetyHookInline oGetDeviceState{};
+		SafetyHookInline oGetDeviceData{};
 
 		struct DInput8VTableAddresses
 		{

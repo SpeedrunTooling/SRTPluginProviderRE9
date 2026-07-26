@@ -17,17 +17,19 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SHA-2)
 FetchContent_GetProperties(SHA-2)
 
+set(SAFETYHOOK_FETCH_ZYDIS ON)
 FetchContent_Declare(
-    minhook
-    GIT_REPOSITORY https://github.com/TsudaKageyu/minhook.git
-    GIT_TAG        1e9ad1eb42db11bfcb65461f687c656612d1b555 # origin/master
-    SOURCE_DIR extern/TsudaKageyu/minhook
+    safetyhook
+    GIT_REPOSITORY https://github.com/cursey/safetyhook.git
+    GIT_TAG        755a4a08aa7d0d7143331dc854235ebc2d1570f9 # origin/master
+    SOURCE_DIR extern/cursey/safetyhook
 )
-FetchContent_MakeAvailable(minhook)
-FetchContent_GetProperties(minhook)
+FetchContent_MakeAvailable(safetyhook)
+FetchContent_GetProperties(safetyhook)
 
 # vcpkg dependencies.
 find_package(imgui CONFIG REQUIRED)
+find_package(magic_enum CONFIG REQUIRED)
 
 add_library(${PROJECT_NAME} SHARED)
 add_library(SRTPluginRE9::Hook ALIAS ${PROJECT_NAME})
@@ -65,6 +67,7 @@ target_sources(${PROJECT_NAME}
         Process.cpp
         Thread.cpp
         GameVersion.cpp
+        CrashHandler.cpp
         DllMain.cpp
 )
 
@@ -74,12 +77,12 @@ target_include_directories(${PROJECT_NAME}
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${sha-2_SOURCE_DIR}
-        ${minhook_SOURCE_DIR}/include
+        ${safetyhook_SOURCE_DIR}
 )
 
 target_link_libraries(${PROJECT_NAME}
     PUBLIC imgui::imgui
-    PRIVATE minhook d3d12 d3dcompiler dxgi dinput8 dxguid dbghelp
+    PRIVATE safetyhook magic_enum::magic_enum d3d12 d3dcompiler dxgi dinput8 dxguid dbghelp psapi
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

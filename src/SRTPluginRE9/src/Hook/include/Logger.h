@@ -3,12 +3,28 @@
 
 #include "UI.h"
 #include "imgui.h"
+#include <atomic>
+#include <cstddef>
 #include <exception>
 #include <format>
 #include <source_location>
 
 namespace SRTPluginRE9::Logger
 {
+	// Lock-free tail of the log. The crash handler reads this without taking g_LogMutex —
+	// a crash can happen while the mutex is held, so locking there would deadlock. A torn
+	// read is acceptable in exchange for never blocking.
+	inline constexpr size_t LogRingCapacity = 64 * 1024;
+	extern char g_LogRing[LogRingCapacity];
+	extern std::atomic<size_t> g_LogRingWritten; // Total bytes ever appended, not the ring offset.
+
+	/// @brief Appends to the lock-free ring. Safe from any thread.
+	void AppendToLogRing(const char *data, size_t size) noexcept;
+
+	/// @brief Copies the ring's contents into dest in chronological order.
+	/// @return Number of bytes written to dest.
+	size_t CopyLogRing(char *dest, size_t destSize) noexcept;
+
 	struct LogViewerData
 	{
 		ImGuiTextBuffer Buffer;

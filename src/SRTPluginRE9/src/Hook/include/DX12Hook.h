@@ -6,6 +6,7 @@
 #include <dxgi.h>
 #include <dxgi1_4.h>
 #include <expected>
+#include <safetyhook.hpp>
 #include <string>
 #include <vector>
 #include <wrl/client.h>
@@ -56,10 +57,10 @@ namespace SRTPluginRE9::DX12Hook
 	private:
 		DX12Hook(); // Resolve and store DX12 VTables.
 
-		// Original function pointers (set by MinHook)
-		PFN_Present oPresent = nullptr;
-		PFN_ResizeBuffers oResizeBuffers = nullptr;
-		PFN_ExecuteCommandLists oExecuteCommandLists = nullptr;
+		// Original function pointers (set by SafetyHook)
+		SafetyHookInline oPresent{};
+		SafetyHookInline oResizeBuffers{};
+		SafetyHookInline oExecuteCommandLists{};
 
 		struct DX12VTableAddresses
 		{

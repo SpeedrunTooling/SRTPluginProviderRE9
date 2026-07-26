@@ -1,12 +1,10 @@
 #include "DllMain.h"
 
+#include "CrashHandler.h"
 #include "Hook.h"
 #include "Logger.h"
 #include "Thread.h"
-#include <DbgHelp.h>
-#include <chrono>
 #include <mutex>
-#include <string>
 
 HMODULE g_dllModule = nullptr;
 HANDLE g_mainThread = nullptr;
@@ -14,51 +12,6 @@ FILE *g_logFile = nullptr;
 SRTPluginRE9::Logger::Logger *logger = nullptr;
 SRTPluginRE9::Logger::LogViewerData *g_LogViewerData = nullptr;
 std::mutex g_LogMutex;
-
-const std::wstring GetCrashDumpFileName()
-{
-	return std::format(L"SRTPluginRE9_{:%Y%m%d-%H%M%S}UTC.dmp", std::chrono::utc_clock::now());
-}
-
-LONG WINAPI SRTUnhandledExceptionFilter(EXCEPTION_POINTERS *pExceptionInfo)
-{
-	// Write error information to our log file.
-	if (logger)
-		logger->LogMessage("Exception {:x} occurred at {:p}!", pExceptionInfo->ExceptionRecord->ExceptionCode, pExceptionInfo->ExceptionRecord->ExceptionAddress);
-
-	// Create the dump file
-	auto hFile = CreateFileW(
-	    GetCrashDumpFileName().c_str(),
-	    GENERIC_WRITE,
-	    0, // Exclusive access.
-	    nullptr,
-	    CREATE_ALWAYS,
-	    FILE_ATTRIBUTE_NORMAL,
-	    nullptr);
-
-	if (hFile != INVALID_HANDLE_VALUE)
-	{
-		MINIDUMP_EXCEPTION_INFORMATION miniDumpEI{
-		    .ThreadId = GetCurrentThreadId(),
-		    .ExceptionPointers = pExceptionInfo,
-		    .ClientPointers = FALSE};
-
-		MiniDumpWriteDump(
-		    GetCurrentProcess(),
-		    GetCurrentProcessId(),
-		    hFile,
-		    MiniDumpNormal, // See below for richer options
-		    &miniDumpEI,
-		    nullptr, // UserStreamParam (optional)
-		    nullptr  // CallbackParam   (optional)
-		);
-
-		CloseHandle(hFile);
-	}
-
-	// Let other handlers process the exception including REFramework or WER (Windows Error Reporting).
-	return EXCEPTION_CONTINUE_SEARCH;
-}
 
 // DLL Entry Point
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
@@ -72,8 +25,8 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 		// Disable thread notifications for performance
 		DisableThreadLibraryCalls(hModule);
 
-		// Set unhandled exception handler.
-		SetUnhandledExceptionFilter(SRTUnhandledExceptionFilter);
+		// Install the crash handler before anything else can fault.
+		SRTPluginRE9::Hook::CrashHandler::Install(hModule);
 
 		if ((g_logFile = _fsopen("SRTPluginRE9.log", "w", SH_DENYNO)) != nullptr)
 		{
@@ -84,6 +37,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID)
 			logger = new SRTPluginRE9::Logger::Logger(g_logFile, g_LogViewerData);
 
 			logger->LogMessage("{} {}: v{}\n", SRTPluginRE9::GameNameShort, SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer);
+
+			// Self-identify the exact symbols this binary needs, so a crash report never
+			// leaves anyone guessing which .pdb to fetch.
+			SRTPluginRE9::Hook::CrashHandler::LogBuildIdentity();
+
 			logger->LogMessage("Press {} to show UI. Press {} to shutdown.\n", "F7", "F8");
 			logger->LogMessage("{:-<50}\n", "");
 			logger->LogMessage("DllMain() entered with reason: {}\n", __DEFINE_TO_STRING(DLL_PROCESS_ATTACH));

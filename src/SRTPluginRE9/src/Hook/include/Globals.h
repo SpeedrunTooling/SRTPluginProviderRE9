@@ -13,7 +13,9 @@
 #define __DEFINE_TO_STRING(defname) #defname
 #endif
 
+#include "DefineFeatures.h"
 #include "GameObjects.h"
+#include "GameVersion.h"
 #include "Logger.h"
 #include "Settings.h"
 #include <assert.h>
@@ -77,6 +79,15 @@ namespace SRTPluginRE9::Version
 #define APP_VERSION_SEMVER "0.1.0+1"
 #endif
 	constinit const std::string_view SemVer = APP_VERSION_SEMVER;
+
+#ifdef TESTBUILD
+#define APP_VERSION_BUILD_TYPE "Test Build"
+#elifdef RELEASE
+#define APP_VERSION_BUILD_TYPE "Release Build"
+#else
+#define APP_VERSION_BUILD_TYPE "Debug Build"
+#endif
+	constinit const std::string_view BuildType = APP_VERSION_BUILD_TYPE;
 }
 
 extern "C"
@@ -158,6 +169,18 @@ extern "C"
 	};
 }
 
+// Why the overlay is showing what it is showing. Lets the UI say something truthful when
+// there is no data, instead of claiming to still be loading forever.
+enum class SRTStatus : uint32_t
+{
+	Loading,                 // Startup; the first read hasn't landed yet.
+	Running,                 // Game version recognised, reads are live.
+	UnrecognisedGameVersion, // Checksum matched nothing known; running on the newest offsets as a guess.
+	VersionDetectionFailed,  // Couldn't hash re9.exe at all; no reads are being performed.
+};
+
+inline std::atomic<SRTStatus> g_SRTStatus{SRTStatus::Loading};
+
 // Double-buffered to allow the main thread and UI thread to operate on data independently.
 struct GameDataBuffer
 {
@@ -182,6 +205,7 @@ extern std::optional<std::uintptr_t> g_BaseAddress;
 extern std::atomic<bool> g_shutdownRequested;
 extern std::mutex g_LogMutex;
 extern SRTSettings g_SRTSettings;
+extern SRTPluginRE9::GameVersion::GameVersion g_GameVersion;
 
 #if defined(DEBUG) || defined(_DEBUG)
 #ifdef IM_ASSERT

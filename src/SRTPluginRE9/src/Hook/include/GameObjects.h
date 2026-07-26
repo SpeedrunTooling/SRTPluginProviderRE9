@@ -9,6 +9,7 @@
 #define NOMINMAX
 #endif
 
+#include "DefineFeatures.h"
 #include <Windows.h>
 #include <cmath>
 #include <cstdint>
@@ -153,6 +154,28 @@ struct ManagedList // 0x20 (32)
 	const T *end() const { return &Values[0][Size]; }
 };
 #pragma warning(pop)
+
+#ifdef SRT_FEATURE_FOV
+namespace app
+{
+	enum class PlayerMode : std::int32_t
+	{
+		TPS = 0,
+		FPS = 1,
+	};
+
+	namespace PlayerCameraFOVParam
+	{
+		enum class TemplateType : std::int32_t
+		{
+			Default = 0,
+			Hold = 1,
+		};
+	}
+}
+#endif
+
+struct ManagedContext;
 
 struct ContextID // 0x20 (32)
 {

@@ -11,12 +11,26 @@
 #include <functional>
 #include <imgui.h>
 #include <imgui_impl_win32.h>
+#include <magic_enum/magic_enum.hpp>
 #include <mutex>
 #include <optional>
 #include <ranges>
 
 namespace SRTPluginRE9::Hook
 {
+	// Shown wherever there is no game data to display. "Loading" is only honest at startup —
+	// if version detection failed we are never going to have data, and saying so beats leaving
+	// the user watching a spinner that will never resolve.
+	static const char *NoDataMessage()
+	{
+		// Detection failure is terminal — no read will ever land, so don't imply otherwise.
+		// An unrecognised version still reads (on guessed offsets), so "loading" stays correct
+		// there; DrawOverlayGameInfo carries the standing warning for that case instead.
+		if (g_SRTStatus.load(std::memory_order_acquire) == SRTStatus::VersionDetectionFailed)
+			return "Could not identify re9.exe - no data. See the log (F7).";
+		return "SRT is loading...";
+	}
+
 	UI::UI()
 	{
 		logger->LogMessage("UI::UI() called.\n");
@@ -25,7 +39,9 @@ namespace SRTPluginRE9::Hook
 
 	void STDMETHODCALLTYPE UI::DrawUI()
 	{
+#ifndef TESTBUILD
 		DrawLogoOverlay();
+#endif
 		DrawMain();
 		DrawOverlayGameInfo();
 		DrawOverlayPlayer();
@@ -83,7 +99,7 @@ namespace SRTPluginRE9::Hook
 		ImGui::SetNextWindowBgAlpha(g_SRTSettings.MainOpacity);
 
 		// "Display Title###Unique Window ID"
-		static const std::string mainWindowTitle = std::format("{} - v{}###SRTMain", SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer);
+		static const std::string mainWindowTitle = std::format("{} - v{} {}###SRTMain", SRTPluginRE9::ToolNameShort, SRTPluginRE9::Version::SemVer, SRTPluginRE9::Version::BuildType);
 		if (!ImGui::Begin(mainWindowTitle.c_str(), reinterpret_cast<bool *>(&g_SRTSettings.MainUIOpened), ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoCollapse))
 		{
 			ImGui::End();
@@ -128,10 +144,12 @@ namespace SRTPluginRE9::Hook
 
 		ImGui::Text("Thank you for using the %s for %s.", SRTPluginRE9::ToolNameShort, SRTPluginRE9::GameName);
 		ImGui::Separator();
+
 		ImGui::Text("Press F7 to toggle the main %s window.", SRTPluginRE9::ToolNameShort);
 		ImGui::Text("Press F8 or go to File -> Exit to shutdown the %s.", SRTPluginRE9::ToolNameShort);
 		ImGui::Separator();
 
+		ImGui::Text("Game version: %s", magic_enum::enum_name(g_GameVersion).data());
 		ImGui::Text("Resolution: %.0fx%.0f", horizontal, vertical);
 		ImGui::Combo("Logo Position", &g_SRTSettings.LogoPosition, logoPositions, IM_ARRAYSIZE(logoPositions));
 		OpacitySlider("Logo Opacity", g_SRTSettings.LogoOpacity, 10.0f);
@@ -165,6 +183,18 @@ namespace SRTPluginRE9::Hook
 				UI::RescaleFont();
 			}
 		}
+
+#ifdef SRT_FEATURE_FOV
+		// FOV
+		ImGui::Checkbox("Enable FOV Mod", reinterpret_cast<bool *>(&g_SRTSettings.FOVEnable));
+		if (g_SRTSettings.FOVEnable)
+		{
+			ImGui::SliderFloat("Third-Person Normal FOV", &g_SRTSettings.FOVTPSNormal, 15.0f, 120.0f, "%.0f");
+			ImGui::SliderFloat("Third-Person ADS FOV", &g_SRTSettings.FOVTPSADS, 15.0f, 120.0f, "%.0f");
+			ImGui::SliderFloat("First-Person Normal FOV", &g_SRTSettings.FOVFPSNormal, 15.0f, 120.0f, "%.0f");
+			ImGui::SliderFloat("First-Person ADS FOV", &g_SRTSettings.FOVFPSADS, 15.0f, 120.0f, "%.0f");
+		}
+#endif
 
 		ImGui::Checkbox("Show customization options", reinterpret_cast<bool *>(&g_SRTSettings.ShowCustomizationOptions));
 		if (g_SRTSettings.ShowCustomizationOptions)
@@ -236,6 +266,7 @@ namespace SRTPluginRE9::Hook
 
 			ImGui::Text("%s %s", SRTPluginRE9::GameName, SRTPluginRE9::ToolName);
 			ImGui::Text("v%s", SRTPluginRE9::Version::SemVer.data());
+			ImGui::Text("Game version: %s", magic_enum::enum_name(g_GameVersion).data());
 			ImGui::Separator();
 			ImGui::Text("Build datetime: %s %s", __DATE__, __TIME__);
 			// ImGui::Text("Debug build: %s", SRTPluginRE9::IsDebug ? "true" : "false");
@@ -271,6 +302,15 @@ namespace SRTPluginRE9::Hook
 #endif
 #ifdef __MINGW64__
 			ImGui::Text("define: __MINGW64__");
+#endif
+#ifdef RELEASE
+			ImGui::Text("define: RELEASE");
+#endif
+#ifdef DEBUG
+			ImGui::Text("define: DEBUG");
+#endif
+#ifdef TESTBUILD
+			ImGui::Text("define: TESTBUILD");
 #endif
 
 			if (copyToClipboard)
@@ -406,8 +446,18 @@ namespace SRTPluginRE9::Hook
 			auto readIndex = g_GameDataBufferReadIndex.load(std::memory_order_acquire);
 			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
 
+			// A standing warning, not a one-off: on an unrecognised build every number below
+			// is read through guessed offsets, so the user needs to distrust them for as long
+			// as they are on screen.
+			if (g_SRTStatus.load(std::memory_order_acquire) == SRTStatus::UnrecognisedGameVersion)
+			{
+				ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Unsupported game version!");
+				ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Values may be wrong.");
+				ImGui::Separator();
+			}
+
 			if (!localBufferedGameData.HasData)
-				ImGui::Text("SRT is loading...");
+				ImGui::TextUnformatted(NoDataMessage());
 			else
 			{
 				const auto &localGameData = localBufferedGameData.Data;
@@ -439,7 +489,7 @@ namespace SRTPluginRE9::Hook
 			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
 
 			if (!localBufferedGameData.HasData)
-				ImGui::Text("SRT is loading...");
+				ImGui::TextUnformatted(NoDataMessage());
 			else
 			{
 				const auto &localGameData = localBufferedGameData.Data;
@@ -478,7 +528,7 @@ namespace SRTPluginRE9::Hook
 			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
 
 			if (!localBufferedGameData.HasData)
-				ImGui::Text("SRT is loading...");
+				ImGui::TextUnformatted(NoDataMessage());
 			else
 			{
 				// const auto &localGameData = localBufferedGameData.Data;
@@ -509,7 +559,7 @@ namespace SRTPluginRE9::Hook
 			const auto &localBufferedGameData = g_GameDataBuffers[readIndex];
 
 			if (!localBufferedGameData.HasData)
-				ImGui::Text("SRT is loading...");
+				ImGui::TextUnformatted(NoDataMessage());
 			else
 			{
 				const auto &localGameData = localBufferedGameData.Data;
