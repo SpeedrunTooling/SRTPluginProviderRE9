@@ -1,0 +1,27 @@
+# Git stores text as LF in the repository regardless of what is checked out. This project is
+# Windows-only (MSVC, Win32, DirectX 12), so pin the working tree to CRLF for everyone rather
+# than leaving it to each contributor's core.autocrlf setting. Without this, whether a file
+# lands as LF or CRLF depends on who cloned it and with which tool.
+* text=auto eol=crlf
+
+# Shell scripts must stay LF even on Windows — a CRLF shebang line is not executable.
+*.sh text eol=lf
+
+# Never touch binary content. None of these are tracked today, but a single accidental
+# newline conversion corrupts them silently, so declare them before that can happen.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.bmp binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.7z binary
+*.dll binary
+*.exe binary
+*.lib binary
+*.pdb binary
+*.obj binary
+*.dmp binary
