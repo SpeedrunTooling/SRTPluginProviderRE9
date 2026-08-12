@@ -61,10 +61,6 @@ struct SRTSettings
 	float_t FOVFPSADS = 40.f;
 #endif
 
-	// Captures the game's code segments in a crash dump, which is what makes the faulting
-	// instruction disassemblable. Costs a lot of file size — turn it off if a reporter can't
-	// upload the result. The fault site itself is captured either way. Default: true.
-	uint32_t CrashDumpIncludeCodeSegments = 1U;
 
 	// Debug settings, not shown in UI.
 	uint32_t DebugEnable = 0U;                // Enables debug mode. Shows debug options in the settings. Default: false.
