@@ -134,9 +134,6 @@ static void SRTSettings_ReadLine(ImGuiContext *, ImGuiSettingsHandler *, void * 
 		readSuccess = TryReadSetting(inputStringView, "FOVFPSADS=", g_SRTSettings.FOVFPSADS);
 #endif
 
-	if (!readSuccess)
-		readSuccess = TryReadSetting(inputStringView, "CrashDumpIncludeCodeSegments=", g_SRTSettings.CrashDumpIncludeCodeSegments);
-
 	// Debug settings, not shown in UI.
 	if (!readSuccess)
 		readSuccess = TryReadSetting(inputStringView, "DebugEnable=", g_SRTSettings.DebugEnable);
@@ -205,8 +202,6 @@ static void SRTSettings_WriteAll(ImGuiContext *, ImGuiSettingsHandler *handler, 
 	out_buf->appendf("FOVFPSNormal=%f\n", g_SRTSettings.FOVFPSNormal);
 	out_buf->appendf("FOVFPSADS=%f\n", g_SRTSettings.FOVFPSADS);
 #endif
-
-	out_buf->appendf("CrashDumpIncludeCodeSegments=%d\n", g_SRTSettings.CrashDumpIncludeCodeSegments);
 
 	// Debug settings, not shown in UI.
 	out_buf->appendf("DebugEnable=%d\n", g_SRTSettings.DebugEnable);

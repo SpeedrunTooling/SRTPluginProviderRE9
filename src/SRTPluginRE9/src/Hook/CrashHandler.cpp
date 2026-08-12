@@ -24,9 +24,21 @@ namespace SRTPluginRE9::Hook::CrashHandler
 	namespace
 	{
 		constexpr size_t ReportBufferSize = 512 * 1024;
-		constexpr size_t MaxExtraMemoryRanges = 64;
 		constexpr size_t MaxModules = 512;
 		constexpr size_t MaxStackFrames = 64;
+
+		// Enough for every stack frame plus the registers plus our own image, with headroom.
+		constexpr size_t MaxExtraMemoryRanges = 128;
+
+		// How much code to capture either side of the faulting instruction and of every return
+		// address on the faulting stack. This replaced MiniDumpWithCodeSegs: whole-module code
+		// capture meant 100% of re9.exe's .text, which produced a 562 MB dump in the field that
+		// the reporter could not upload. A window this size still disassembles every frame on
+		// the crash path, which is all any analysis has ever needed.
+		constexpr ULONG CodeWindowBytes = 1024 * 1024;
+
+		// Smaller window for data the registers point at — usually structures, not code.
+		constexpr ULONG DataWindowBytes = 0x800;
 		constexpr ULONG StackGuaranteeBytes = 64 * 1024;
 
 		// The process is dying either way; a bounded wait is strictly better than hanging the
@@ -100,6 +112,11 @@ namespace SRTPluginRE9::Hook::CrashHandler
 		};
 
 		ExtraMemory g_extraMemory{};
+
+		// Unwound before the dump is written, so the memory ranges can cover every frame on the
+		// crash path. The report reuses these rather than unwinding a second time.
+		uintptr_t g_faultFrames[MaxStackFrames]{};
+		size_t g_faultFrameCount = 0;
 
 		// ---------------------------------------------------------------------------------
 		// Allocation-free text building.
@@ -515,7 +532,7 @@ namespace SRTPluginRE9::Hook::CrashHandler
 
 		void AddExtraRange(uintptr_t center, ULONG halfWindow) noexcept
 		{
-			if (g_extraMemory.Count >= MaxExtraMemoryRanges || center == 0)
+			if (center == 0)
 				return;
 
 			// Clamp to something actually mapped — a bogus range can fail the whole dump.
@@ -535,6 +552,28 @@ namespace SRTPluginRE9::Hook::CrashHandler
 			if (end <= begin)
 				return;
 
+			// Consecutive frames usually sit within a window of each other, so their ranges
+			// overlap heavily. Merge instead of adding duplicates: it keeps the slot count down
+			// and stops the same megabyte being written to the dump several times over.
+			for (ULONG i = 0; i < g_extraMemory.Count; ++i)
+			{
+				MemoryRange &existing = g_extraMemory.Ranges[i];
+				const uintptr_t existingBegin = static_cast<uintptr_t>(existing.Base);
+				const uintptr_t existingEnd = existingBegin + existing.Size;
+
+				if (begin > existingEnd || end < existingBegin)
+					continue;
+
+				const uintptr_t mergedBegin = (begin < existingBegin) ? begin : existingBegin;
+				const uintptr_t mergedEnd = (end > existingEnd) ? end : existingEnd;
+				existing.Base = mergedBegin;
+				existing.Size = static_cast<ULONG>(mergedEnd - mergedBegin);
+				return;
+			}
+
+			if (g_extraMemory.Count >= MaxExtraMemoryRanges)
+				return;
+
 			g_extraMemory.Ranges[g_extraMemory.Count].Base = begin;
 			g_extraMemory.Ranges[g_extraMemory.Count].Size = static_cast<ULONG>(end - begin);
 			++g_extraMemory.Count;
@@ -550,7 +589,17 @@ namespace SRTPluginRE9::Hook::CrashHandler
 
 			// The faulting instruction and its neighbourhood — the single most valuable thing
 			// to capture, and precisely what a MiniDumpNormal dump can never disassemble.
-			AddExtraRange(static_cast<uintptr_t>(context->Rip), 0x1000);
+			AddExtraRange(static_cast<uintptr_t>(context->Rip), CodeWindowBytes);
+
+			// Every return address on the crash path gets the same treatment, so each frame in
+			// the report's stack listing can actually be disassembled. This is what replaces
+			// whole-module code segments. The windows are NOT restricted to whitelisted
+			// modules: deciding that would mean resolving each address to its owning module,
+			// which needs the loader lock, and this runs before the dump is written — the one
+			// place we most want to avoid a lock the faulting thread might already hold. A
+			// couple of extra megabytes around a kernel32 frame is a cheap price.
+			for (size_t i = 0; i < g_faultFrameCount; ++i)
+				AddExtraRange(g_faultFrames[i], CodeWindowBytes);
 
 			const DWORD64 registers[] = {
 			    context->Rax, context->Rcx, context->Rdx, context->Rbx,
@@ -559,10 +608,9 @@ namespace SRTPluginRE9::Hook::CrashHandler
 			    context->R12, context->R13, context->R14, context->R15};
 
 			for (const DWORD64 value : registers)
-				AddExtraRange(static_cast<uintptr_t>(value), 0x800);
+				AddExtraRange(static_cast<uintptr_t>(value), DataWindowBytes);
 
-			// The whole plugin image is only ~1.4 MB, so always take it — our own frames then
-			// disassemble even when code segments are switched off.
+			// The whole plugin image is only a couple of megabytes, so always take it in full.
 			if (g_selfIdentity.ImageBase != 0 && g_selfIdentity.SizeOfImage != 0 &&
 			    g_extraMemory.Count < MaxExtraMemoryRanges)
 			{
@@ -586,7 +634,9 @@ namespace SRTPluginRE9::Hook::CrashHandler
 				{
 					// Keep ModuleWriteModule and ModuleWriteCvRecord for every module — the
 					// CV record is what lets a debugger bind symbols at all. Only the bulky
-					// code and data segments get stripped for modules we don't care about.
+					// data segments get stripped for modules we don't care about. (Code
+					// segments are no longer requested at all; the bounded windows built in
+					// BuildExtraMemoryRanges cover the crash path instead.)
 					if (!IsWhitelistedModule(callbackInput->Module.FullPath))
 						callbackOutput->ModuleWriteFlags &= ~static_cast<ULONG>(ModuleWriteDataSeg | ModuleWriteCodeSegs);
 					return TRUE;
@@ -767,7 +817,9 @@ namespace SRTPluginRE9::Hook::CrashHandler
 			out.Ch('\n');
 		}
 
-		void AppendFaultingStack(Appender &out, const CONTEXT *context, DWORD faultingThreadId) noexcept
+		// Reuses the unwind performed before the dump was written, so the frames listed here are
+		// exactly the ones the dump captured code around.
+		void AppendFaultingStack(Appender &out, DWORD faultingThreadId) noexcept
 		{
 			// The TID is passed in rather than read from the current thread: this runs on the
 			// crash worker, not on the thread that faulted.
@@ -775,20 +827,18 @@ namespace SRTPluginRE9::Hook::CrashHandler
 			out.Dec(faultingThreadId);
 			out.Str(") ---\n");
 
-			uintptr_t frames[MaxStackFrames]{};
-			const size_t count = UnwindStack(*context, frames, MaxStackFrames);
-			if (count == 0)
+			if (g_faultFrameCount == 0)
 			{
 				out.Str("  <unwind produced no frames>\n");
 				return;
 			}
 
-			for (size_t i = 0; i < count; ++i)
+			for (size_t i = 0; i < g_faultFrameCount; ++i)
 			{
 				out.Str("  [");
 				out.Dec(i);
 				out.Str("] ");
-				AppendResolvedAddress(out, frames[i]);
+				AppendResolvedAddress(out, g_faultFrames[i]);
 				out.Ch('\n');
 			}
 		}
@@ -1014,8 +1064,7 @@ namespace SRTPluginRE9::Hook::CrashHandler
 				out.Ch('\n');
 			}
 
-			if (job.ExceptionInfo != nullptr && job.ExceptionInfo->ContextRecord != nullptr)
-				AppendFaultingStack(out, job.ExceptionInfo->ContextRecord, job.FaultingThreadId);
+			AppendFaultingStack(out, job.FaultingThreadId);
 			AppendSrtState(out);
 			FlushStage(out);
 
@@ -1066,6 +1115,14 @@ namespace SRTPluginRE9::Hook::CrashHandler
 		// of a stack full of dbgcore frames.
 		void WriteDumpAndReport(CrashJob &job) noexcept
 		{
+			// Unwind first: the memory ranges below need the return addresses so they can
+			// capture code around every frame, not just around RIP. Unwinding only walks
+			// unwind tables and reads the stack — no allocation, no locks — and it is already
+			// SEH-guarded, so it is safe to do before the dump.
+			g_faultFrameCount = 0;
+			if (job.ExceptionInfo != nullptr && job.ExceptionInfo->ContextRecord != nullptr)
+				g_faultFrameCount = UnwindStack(*job.ExceptionInfo->ContextRecord, g_faultFrames, MaxStackFrames);
+
 			BuildExtraMemoryRanges(job.ExceptionInfo != nullptr ? job.ExceptionInfo->ContextRecord : nullptr);
 
 			// The dump comes first: it is the artifact we cannot regenerate.
@@ -1094,7 +1151,14 @@ namespace SRTPluginRE9::Hook::CrashHandler
 
 				// Each flag buys a specific debugger capability that MiniDumpNormal denied.
 				// See docs/CRASH-REPORTS.md for the flag -> capability mapping.
-				ULONG dumpType = static_cast<ULONG>(
+				//
+				// Deliberately absent: MiniDumpWithCodeSegs. It captured 100% of every
+				// whitelisted module's .text, and re9.exe is a 533 MB image — one field report
+				// produced a 562 MB dump the reporter could not upload, of which roughly 32
+				// bytes were actually needed. The memory callback now captures a bounded window
+				// around RIP and around every return address instead, which disassembles the
+				// whole crash path for a tiny fraction of the size.
+				const ULONG dumpType = static_cast<ULONG>(
 				    MiniDumpWithDataSegs |                   // Globals.
 				    MiniDumpWithHandleData |                 // !handle
 				    MiniDumpWithUnloadedModules |            // Resolve IPs in unloaded DLLs.
@@ -1104,13 +1168,6 @@ namespace SRTPluginRE9::Hook::CrashHandler
 				    MiniDumpWithFullMemoryInfo | // !address
 				    MiniDumpWithModuleHeaders |  // PE headers, so images needn't be on disk.
 				    MiniDumpIgnoreInaccessibleMemory);
-
-				// Code segments are what make the faulting instruction disassemblable, and
-				// they are also the bulk of the file. The module callback confines them to the
-				// game, this plugin and REFramework; the memory callback still captures the
-				// fault site even when this is switched off.
-				if (g_SRTSettings.CrashDumpIncludeCodeSegments != 0U)
-					dumpType |= static_cast<ULONG>(MiniDumpWithCodeSegs);
 
 				MINIDUMP_CALLBACK_INFORMATION callbackInfo{
 				    .CallbackRoutine = &MiniDumpCallback,

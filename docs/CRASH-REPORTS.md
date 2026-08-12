@@ -13,18 +13,14 @@ working directory** (next to `re9.exe`):
 
 Please attach all three. The `.crash.txt` alone is often enough to triage.
 
-### If the dump is too big to upload
+### If the dump is still too big to upload
 
-Open `SRTRE9_ImGui.ini` and set:
+Zip it first — minidumps are mostly repetitive code and zero-filled pages, and 7-Zip/LZMA2
+routinely gets 3–5× on them.
 
-```ini
-[SRTSettings][General]
-CrashDumpIncludeCodeSegments=0
-```
-
-That drops the game's code segments from the dump. It shrinks the file a lot, and the
-faulting instruction is still captured — you lose the ability to disassemble the wider
-surrounding code, not the crash site itself.
+There is no longer a setting to shrink the dump, because there is no longer a reason to have
+one: dumps are bounded by design (see *How much the dump captures* below). If you are seeing
+one large enough to be a problem, that is worth reporting on its own.
 
 ### Getting a better dump than the plugin can make
 
@@ -113,21 +109,41 @@ disassemble a fault inside the game.
 
 | Flag | Capability |
 |---|---|
-| `MiniDumpWithCodeSegs` | `u` / `ub` — disassemble the faulting instruction |
 | `MiniDumpWithDataSegs` | Read globals |
 | `MiniDumpWithIndirectlyReferencedMemory` | Follow pointers held in registers and on the stack |
-| `MiniDumpWithFullMemoryInfo` | `!address` |
+| `MiniDumpWithFullMemoryInfo` | `!address` — is a page committed, free, or reserved |
 | `MiniDumpWithHandleData` | `!handle` |
 | `MiniDumpWithThreadInfo` | Thread start addresses and CPU times |
 | `MiniDumpWithUnloadedModules` | Resolve IPs into DLLs that have since unloaded |
 | `MiniDumpWithModuleHeaders` | PE section layout without needing the image on disk |
 | `MiniDumpIgnoreInaccessibleMemory` | One bad page no longer fails the whole dump |
 
-A `MINIDUMP_CALLBACK` keeps this affordable. Code and data segments are written only for
-`re9.exe`, `SRTPluginRE9.dll`, and REFramework; the ~180 other modules keep their module
-record and CodeView record (so symbols still bind) but contribute no bulk. A second callback
-adds targeted windows around `RIP`, every general-purpose register, and the whole plugin
-image — so the fault site survives even with code segments switched off.
+A `MINIDUMP_CALLBACK` keeps this affordable. Data segments are written only for `re9.exe`,
+`SRTPluginRE9.dll`, and REFramework; the ~180 other modules keep their module record and
+CodeView record (so symbols still bind) but contribute no bulk.
+
+### How much the dump captures
+
+`MiniDumpWithCodeSegs` is deliberately **not** requested. It captured 100% of every whitelisted
+module's `.text`, and `re9.exe` is a 533 MB image. Measured on a real field report:
+
+```
+total captured memory      560.9 MB
+of that, inside re9.exe    516.7 MB   <- what whole-module code capture cost
+everything else             44.1 MB
+```
+
+The reporter could not upload it, and the analysis needed roughly 32 bytes of it.
+
+Instead, a second callback captures **bounded windows**: ±1 MB around `RIP`, ±1 MB around every
+return address on the faulting thread's unwound stack, ±2 KB around each general-purpose
+register, and the whole plugin image. Overlapping windows are merged, and each is clamped to
+its containing committed region. Simulated against that same field crash, 11 frames collapse to
+7 windows totalling 12.4 MB — projecting the dump to **~57 MB instead of 561 MB**, with every
+frame on the crash path still disassemblable.
+
+That is the property to preserve if this is ever touched: not "the dump is small", but *every
+frame listed in the `.crash.txt` stack can be disassembled from the `.dmp`*.
 
 ---
 
