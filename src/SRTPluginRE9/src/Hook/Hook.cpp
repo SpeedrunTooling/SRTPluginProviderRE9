@@ -948,13 +948,24 @@ namespace SRTPluginRE9::Hook
 				logger->LogMessage("Hook::MainLoop() WARNING: Unrecognised game version. Readings may be wrong or empty.\n");
 				SetCrashContextGameVersion("Unknown");
 				g_SRTStatus.store(SRTStatus::UnrecognisedGameVersion, std::memory_order_release);
-				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E9E1190ULL)).deref();
-				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E999618ULL)).deref();
+				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E9BDFF0ULL)).deref();
+				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E974DE0ULL)).deref();
 
 				// Deliberately leave the FOV/scene offsets at zero so the version-specific
 				// hooks below stay unattached. Reading a wrong address is harmless — every
 				// dereference is SEH-guarded — but writing a detour to a guessed *code*
 				// address would corrupt whatever function actually lives there.
+				break;
+			}
+
+			case GameVersion::GameVersion::WW_20260625_1: // 1.3.1.0
+			{
+				logger->LogMessage("Hook::MainLoop() Game version: WW_20260625_1\n");
+				SetCrashContextGameVersion("WW_20260625_1");
+				rankManager = protect(reinterpret_cast<RankManager **>(*g_BaseAddress + 0x0E9BDFF0ULL)).deref();
+				characterManager = protect(reinterpret_cast<CharacterManager **>(*g_BaseAddress + 0x0E974DE0ULL)).deref();
+				// FOV function offsets for 1.3.1.0 are not known yet; leaving them at zero keeps the
+				// TESTBUILD-only FOV hooks unattached instead of detouring a guessed code address.
 				break;
 			}
 
