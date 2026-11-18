@@ -56,8 +56,15 @@ internal class GameMemoryScanner : IDisposable
     {
         switch (gameVersion)
         {
-            case GameVersion.WW_20260508_1:
+            case GameVersion.WW_20260625_1:
             default:
+                {
+                    pointerAppRankManager = 0x0E9BDFF0; // app.RankManager
+                    pointerAppCharacterManager = 0x0E974DE0; // app.CharacterManager
+                    break;
+                }
+
+            case GameVersion.WW_20260508_1:
                 {
                     pointerAppRankManager = 0x0E9E1190; // app.RankManager
                     pointerAppCharacterManager = 0x0E999618; // app.CharacterManager
